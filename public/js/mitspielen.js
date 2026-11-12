@@ -1,7 +1,7 @@
-// Handy-Seite der SuS: anmelden, Qualifying allein spielen, im Finale mitspielen (Ergebnis am Beamer)
+// Handy-Seite der SuS: anmelden, Qualifying allein spielen, Klassenrunde und Finale mitspielen (Auflösung am Beamer)
 import { KNet, randomId, store } from './net.js';
-import { ART_TEXT, NW, NW_WAHL_TEXT, STUFE_TEXT, REIHE_LAENGE, zeitLimit, bewerte, prozentText } from './regeln.js';
-import { $, esc, LM, BK, bedarfKarte, reiheEingabe, reiheAufloesung, handEingabe, bedarfAuswertung, lmKarte, lueckeText, tipp, mmss } from './karten.js';
+import { ART_TEXT, NW, NW_WAHL_TEXT, STUFE_TEXT, REIHE_LAENGE, GNADE, zeitLimit, bewerte, prozentText } from './regeln.js';
+import { $, esc, LM, BK, bedarfKarte, reiheEingabe, reiheAufloesung, reiheHtml, handEingabe, bedarfAuswertung, lmKarte, lueckeText, tipp, mmss } from './karten.js';
 import { sortiert, richtigeLuecke, mitEinheit, wert } from './regeln.js';
 import { Solo } from './solo.js';
 import { Ton } from './ton.js';
@@ -17,6 +17,7 @@ if (!pid || !/^[a-z0-9]{8,24}$/.test(pid)) { pid = randomId(16); store('makro.pi
 let net = null, you = null, shown = '';
 let Q = null;   // laufendes Qualifying
 let F = null;   // Finale (eigene Sicht)
+let K = null;   // Klassenrunde (eigene Sicht)
 
 // Handys bleiben immer stumm (kein Ton im Klassenzimmer). Ton gibt es nur im Finale vom Beamer-Laptop.
 Ton.an = false;
@@ -70,19 +71,21 @@ function spielErklaerung(art, nw, stufe) {
 function update() {
   if (!you) return;
   const me = you.me;
-  if (!me) { stopQuali(); stopFinal(); return joinForm(); }
+  if (!me) { stopQuali(); stopFinal(); stopKlasse(); return joinForm(); }
+  if (you.phase !== 'klasse') stopKlasse();
   switch (you.phase) {
     case 'lobby': stopQuali(); stopFinal(); wachHalten(false); return lobbyKarte(me);
     case 'quali': stopFinal(); return quali();
     case 'final-setup': stopQuali(); stopFinal(); wachHalten(false); return afterQuali();
     case 'final': case 'podium': stopQuali(); return final();
+    case 'klasse': stopQuali(); stopFinal(); return klasse();
   }
 }
 
 function lobbyKarte(me) {
   const c = you.cfg || {};
   show('lobby:' + me.name + ':' + c.art + ':' + c.nw + ':' + c.stufe, `<div class="card"><p class="eyebrow">Hallo ${esc(me.name)}!</p><h2>Gleich geht’s los</h2>
-      <p>Warte, bis die Lehrkraft das Qualifying startet. Alle spielen gleichzeitig auf dem eigenen Handy. Nach einem Fehler geht es mit einem neuen Versuch weiter, dein bester zählt.</p>
+      <p>Warte, bis die Lehrkraft das Spiel startet. Alle spielen gleichzeitig auf dem eigenen Handy, die Auflösung kommt am Beamer.</p>
       <div class="waitdots"><i></i><i></i><i></i></div>
       <p>${spielErklaerung(c.art, c.nw, c.stufe)}</p>
       <button class="ghost-btn" id="btnLeave">Nicht ${esc(me.name)}? Namen ändern</button></div>${tippKarte()}`, () => {
@@ -402,6 +405,144 @@ function zuschauen(f) {
       <ol class="stand">${list.map(x => `<li><b>${x.p}. ${esc(x.n)}</b></li>`).join('')}</ol></div>${tippKarte()}`);
   }
   return show('spec:' + f.nr, `<div class="card"><p class="eyebrow">Finale</p><h2>Schau zum Beamer! 👀</h2><p>Gerade spielen <b>${namen(f)}</b> das Finale. Rate im Kopf mit!</p></div>${tippKarte()}`);
+}
+
+// ---------------------------------------------------------------- Klassenrunde
+function stopKlasse() {
+  if (!K) return;
+  K.timers.forEach(clearTimeout); cancelAnimationFrame(K.raf);
+  countdown(null);
+  if (K.eingabe) K.eingabe.sperren();
+  K = null;
+}
+const klater = (fn, at) => K.timers.push(setTimeout(fn, Math.max(0, at - serverNow())));
+const punkteText = p => `${p} ${p === 1 ? 'Punkt' : 'Punkte'}`;
+const plusText = n => n > 0 ? `+${n}` : n < 0 ? `${n}` : '±0';
+
+function klasse() {
+  const k = you.klasse;
+  if (!k) return;
+  if (k.state === 'ende') return klasseEnde(k);
+  wachHalten(true);
+  if (!K || K.nr !== k.nr) { stopKlasse(); K = { nr: k.nr, key: '', timers: [], raf: 0, eingabe: null, abgabeRunde: 0 }; }
+  const me = k.me;
+  // Nur neu zeichnen, wenn sich die Runde ändert (sonst geht eine halbe Auswahl verloren)
+  const key = [k.runde, k.startAt, k.paused, !!me.abgegeben].join(':');
+  if (K.key === key) return;
+  K.key = key;
+  if (me.abgegeben && K.abgabeRunde === k.runde) return; // eigene Abgabe steht schon auf dem Bildschirm
+  K.timers.forEach(clearTimeout); K.timers = []; cancelAnimationFrame(K.raf);
+  spielfeldZeigen(true); shown = 'klasse-play';
+  zeitbalkenZeigen(false); zeitbalken(null);
+  $('#sInfo').hidden = true;
+  const titel = `Runde ${k.runde} <small>von ${k.runden} · Klassenrunde</small>`;
+  if (me.abgegeben) { status(titel, punkteText(me.p), 'tippen'); $('#spiel').innerHTML = '<div class="card"><h2>Abgegeben ✓</h2><p>Warte auf die anderen. Die Auflösung kommt am Beamer.</p><div class="waitdots"><i></i><i></i><i></i></div></div>'; return; }
+  if (k.paused || serverNow() < k.startAt) {
+    kZwischen(k);
+    if (!k.paused) {
+      if (k.first) for (let s = 3; s >= 1; s--) klater(() => countdown(s, 'Gleich geht’s los!'), k.startAt - s * 1000);
+      klater(() => { countdown(null); K.key = ''; klasse(); }, k.startAt);
+    }
+    return;
+  }
+  kEingabe(k, titel);
+}
+
+function kEingabe(k, titel) {
+  countdown(null);
+  const el = $('#spiel'), t0 = k.startAt;
+  const ab = extra => { send(Object.assign({ nr: k.nr, r: k.runde, ms: Math.max(0, Math.round(serverNow() - t0)) }, extra)); kAbgegeben(k, titel); };
+  if (k.art === 'reihe') {
+    status(titel, punkteText(k.me.p), 'tippen');
+    K.eingabe = reiheEingabe(el, {
+      reihe: k.reihe, neu: k.neu, nw: k.nw, zeigen: false, geordnet: true, zweifel: k.reihe.length >= 2,
+      rueck: `<div class="rueck info">Ordne nach <b>${esc(NW[k.nw].name)}</b>. Die Karte kommt dorthin, wo die Mehrheit sie hinlegt.${k.reihe.length >= 2 ? ' Steckt schon ein Fehler in der Reihe? Dann zweifle!' : ''}</div>`,
+      onAbgabe: gap => ab({ t: 'k-reihe', gap }),
+      onZweifel: () => ab({ t: 'k-reihe', zweifel: true }),
+    });
+  } else {
+    status(titel, punkteText(k.me.p), 'tippen');
+    el.innerHTML = `<div class="bedarfspiel">${bedarfKarte(k.b, { cls: 'klein' })}<div id="handBox"></div></div>`;
+    K.eingabe = handEingabe($('#handBox'), { hand: k.hand, onAbgabe: pick => ab({ t: 'k-bedarf', pick }) });
+  }
+  if (navigator.vibrate) try { navigator.vibrate(40); } catch (e) {}
+  if (k.deadline) {
+    const limit = zeitLimit(k.art, k.art === 'reihe' ? k.reihe.length : 0, k.zeit);
+    zeitbalkenZeigen(true);
+    const tick = () => {
+      if (!K) return;
+      const rest = k.deadline - serverNow();
+      zeitbalken(Math.max(0, rest), limit);
+      if (rest > 0) K.raf = requestAnimationFrame(tick);
+      else { if (K.eingabe) K.eingabe.sperren(); status(titel, 'Zeit um!', 'bad'); }
+    };
+    K.raf = requestAnimationFrame(tick);
+    // Auch das Handy meldet das Ende der Zeit (falls der Beamer-Laptop schläft); leicht versetzt, damit nicht alle gleichzeitig senden
+    klater(() => send({ t: 'k-tick', nr: k.nr, r: k.runde }), k.deadline + GNADE + 300 + Math.random() * 2000);
+  }
+}
+function kAbgegeben(k, titel) {
+  K.abgabeRunde = k.runde;
+  cancelAnimationFrame(K.raf); zeitbalken(null);
+  status(titel, 'Abgegeben ✓', 'tippen');
+  const el = $('#spiel');
+  el.insertAdjacentHTML('afterbegin', '<div class="rueck warten">Abgegeben ✓ Warte auf die anderen – die Auflösung kommt am Beamer.</div>');
+  el.scrollTop = 0;
+}
+
+// Zwischen zwei Runden: eigenes Ergebnis der letzten Runde und Punktestand
+function kZwischen(k) {
+  const el = $('#spiel'), L = k.last, me = k.me, z = me.zuletzt;
+  let h = '';
+  const stand = `<div class="card"><div class="bigstat"><b>${me.p}</b><span>${me.p === 1 ? 'Punkt' : 'Punkte'} · Platz ${me.platz} von ${me.von}</span></div></div>`;
+  if (!L) {
+    status(`Runde ${k.runde} <small>von ${k.runden} · Klassenrunde</small>`, 'Gleich geht’s los!', 'beamer');
+    h = `<div class="card"><p class="eyebrow">Klassenrunde</p><h2>Alle spielen mit!</h2>${k.art === 'reihe'
+      ? `<p>Jede Runde kommt eine neue Karte. Du kannst sie <b>einordnen</b> oder <b>zweifeln</b>, wenn du glaubst, dass in der Reihe schon ein Fehler steckt.</p>
+         <p>Die Karte kommt dorthin, wo die <b>Mehrheit</b> sie hinlegt. Die Werte bleiben verdeckt, bis jemand zweifelt oder die Reihe voll ist.</p>`
+      : `<p>Jede Runde kommt eine Bedarfskarte. Wähle bis zu 5 Lebensmittel und komm dem Zielwert so nah wie möglich, ohne ihn zu überschreiten.</p>`}</div>`;
+  } else if (k.art === 'reihe') {
+    status(`Runde ${L.runde} <small>von ${k.runden} · Auflösung</small>`, punkteText(me.p), 'beamer');
+    let txt = '', cls = '';
+    if (!z) txt = '<p>Du hast in dieser Runde nicht abgegeben.</p>';
+    else if (z.zweifel) { txt = `<p>Du hast gezweifelt: <b>${plusText(z.plus)}</b> ${Math.abs(z.plus) === 1 ? 'Punkt' : 'Punkte'}.</p>`; cls = z.plus > 0 ? 'good' : z.plus < 0 ? 'bad' : ''; }
+    else if (L.gap >= 0) txt = z.gap === L.gap ? '<p>Du hast die Karte dorthin gelegt, wo auch die Mehrheit sie hingelegt hat.</p>' : '<p>Die Mehrheit hat die Karte woanders hingelegt als du.</p>';
+    if (L.aufgedeckt) {
+      const fehler = L.fehler.length > 0;
+      const titel = L.aufgedeckt === 'zweifel' ? (L.zweifelRecht ? 'Zu Recht gezweifelt!' : 'Die Reihe war richtig!') : (fehler ? 'Aufgedeckt: Da war ein Fehler!' : 'Aufgedeckt: Alles richtig!');
+      const rp = z && z.reihePlus != null ? `<p>Fürs Einordnen in dieser Reihe bekommst du <b>${plusText(z.reihePlus)}</b>.</p>` : '';
+      h = `<div class="card ${cls}"><h2>${esc(titel)}</h2>${txt}${rp}
+        ${L.zweifler.length ? `<p class="hint">Gezweifelt haben ${L.zweifler.length}.</p>` : ''}
+        <div class="reihebox klein">${reiheHtml(L.offen, L.nw, { geordnet: true, zeigen: true, luecken: false, karteCls: (i, pos) => L.fehler.includes(pos) || L.fehler.includes(pos - 1) ? 'falschrum' : '' })}</div>
+        <p class="hint">Rot markierte Karten liegen falsch herum. Jetzt beginnt eine neue Reihe.</p></div>`;
+    } else {
+      h = `<div class="card"><h2>Die Mehrheit hat entschieden</h2>${txt}<p class="hint">Ob die Reihe stimmt, siehst du erst, wenn jemand zweifelt oder die Reihe voll ist. Schau zum Beamer!</p></div>`;
+    }
+  } else {
+    status(`Runde ${L.runde} <small>von ${k.runden} · Auflösung</small>`, punkteText(me.p), 'beamer');
+    if (!z) h = '<div class="card"><h2>Keine Abgabe</h2><p>Du hast in dieser Runde nichts abgegeben.</p></div>';
+    else {
+      const pick = z.pick.map(i => L.hand[i]);
+      const e = bewerte(L.hand, z.pick, L.b);
+      h = `<div class="card ${z.plus > 0 ? 'good' : ''}"><h2>${plusText(z.plus)} ${Math.abs(z.plus) === 1 ? 'Punkt' : 'Punkte'}</h2></div>` + bedarfAuswertung(L.b, L.hand, pick, e, { quali: false, gewonnen: z.plus > 0 });
+    }
+  }
+  const fuss = k.paused ? '<div class="card"><h2>Pause</h2><p>Die Lehrkraft bespricht die Auflösung. Schau zum Beamer!</p></div>'
+    : L ? '<div class="card"><p class="hint">Die nächste Runde beginnt gleich. Schau zum Beamer!</p></div>' : '';
+  el.innerHTML = stand + h + fuss;
+  el.scrollTop = 0;
+}
+
+function klasseEnde(k) {
+  const me = k.me;
+  const key = 'kende:' + k.nr + ':' + me.p + ':' + me.platz;
+  if (shown === key) return;
+  stopKlasse(); wachHalten(false);
+  show(key, `<div class="card ${me.platz === 1 ? 'good' : ''}"><p class="eyebrow">Klassenrunde vorbei</p>
+      <h2>${me.platz === 1 ? '🏆 Du hast gewonnen!' : `Platz ${me.platz} von ${me.von}`}</h2>
+      <div class="bigstat"><b>${me.p}</b><span>${me.p === 1 ? 'Punkt' : 'Punkte'}</span></div>
+      <ol class="stand">${k.top.map(x => `<li><b>${1 + k.top.filter(y => y.p > x.p).length}. ${esc(x.name)}</b><span>${punkteText(x.p)}</span></li>`).join('')}</ol>
+      <p>Schau zum Beamer: Vielleicht geht es gleich mit dem Finale weiter.</p></div>${tippKarte()}`);
 }
 
 // ---------------------------------------------------------------- Start

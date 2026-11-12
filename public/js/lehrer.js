@@ -1,8 +1,9 @@
-// Beamer-Seite der Lehrkraft: Lobby mit QR-Code, Live-Rangliste im Qualifying, Finale mit Ton, Siegerehrung
+// Beamer-Seite der Lehrkraft: Lobby mit QR-Code, Live-Rangliste im Qualifying, Klassenrunde, Finale mit Ton, Siegerehrung
 import { KNet, randomCode, randomId, store } from './net.js';
 import {
-  SPIELARTEN, ART_TEXT, NW, NW_WAHL, NW_WAHL_TEXT, nwWahlKurz, STUFEN, STUFE_TEXT, ZEITEN, ZEIT_TEXT, QUALI_MINUTEN, QUALI_TEXT,
+  SPIELARTEN, ART_TEXT, NW, NW_WAHL, NW_WAHL_TEXT, nwWahlKurz, STUFEN, STUFE_TEXT, ZEITEN, ZEIT_TEXT, QUALI_MINUTEN,
   FINAL_GROESSEN, SIEG_KARTEN, SCHLUSS_GNADE, GNADE, zeitLimit, prozentText, mitEinheit, wert, bewerte, sortiert,
+  KLASSE_RUNDEN, PUNKTE,
 } from './regeln.js';
 import {
   $, esc, LM, BK, fmtMs, mmss, tipp, lmKarte, lmGross, bedarfKarte, reiheHtml, reiheAufloesung, kombiListe, kombiText, balken,
@@ -11,12 +12,14 @@ import {
 import { zielZehntel } from './regeln.js';
 import { TREFFER_PROZENT } from './inhalte.js';
 import { Ton } from './ton.js';
+import { bild } from './bilder.js';
 
 const view = $('#view'), netdot = $('#netdot'), codeChip = $('#codeChip'), toastEl = $('#toast');
 
 let sess = store('makro.lehrer');
 let net = null, room = null, screen = '';
-let cfg = Object.assign({ art: 'reihe', nw: 'kcal', stufe: 'offen', zeit: 'an', qmin: 3, finalN: 4, sieg: 3 }, store('makro.lehrer.cfg') || {});
+let cfg = Object.assign({ art: 'reihe', nw: 'kcal', stufe: 'offen', zeit: 'an', qmin: 3, finalN: 4, sieg: 3, runden: 15 }, store('makro.lehrer.cfg') || {});
+if (!KLASSE_RUNDEN.includes(Number(cfg.runden))) cfg.runden = 15;
 if (!SPIELARTEN.includes(cfg.art)) cfg.art = 'reihe';
 if (!NW_WAHL.includes(cfg.nw)) cfg.nw = 'kcal';
 if (!STUFEN.includes(cfg.stufe)) cfg.stufe = 'offen';
@@ -27,8 +30,8 @@ if (!SIEG_KARTEN.includes(Number(cfg.sieg))) cfg.sieg = 3;
 let quitArmed = 0;
 const bekannt = new Set(); // Namen in der Lobby, die schon angezeigt wurden
 const serverNow = () => net ? net.serverNow() : Date.now();
-const ergebnis = (art, q) => !q || !q.lvl ? '0' : art === 'bedarf' ? `${q.lvl}` : `${q.lvl}`;
-const nebenwert = (art, q) => !q || !q.lvl ? '' : art === 'bedarf' ? 'Ø ' + prozentText(q.acc) : fmtMs(q.ms);
+const ergebnis = (art, q) => !q || !q.lvl ? '0' : q.klasse ? `${q.lvl} P.` : `${q.lvl}`;
+const nebenwert = (art, q) => !q || !q.lvl || q.klasse ? '' : art === 'bedarf' ? 'Ø ' + prozentText(q.acc) : fmtMs(q.ms);
 const artNw = (art, nw, stufe) => `${ART_TEXT[art].name} · ${art === 'reihe' && NW[nw] ? NW[nw].name : NW_WAHL_TEXT[nw] || ''}${art === 'reihe' ? ' · ' + STUFE_TEXT[stufe].name : ''}`;
 
 // ---------------------------------------------------------------- Ton & Werkzeuge
@@ -73,6 +76,7 @@ function onMessage(m) {
   if (typeof m.now === 'number' && net.rtt > 5000) net.offset = m.now - Date.now();
   switch (m.t) {
     case 'room': room = m; render(); break;
+    case 'kp': kFortschritt(m); break;
     case 'error':
       if (m.why === 'code-taken') newSession();
       else if (m.why === 'final-offline') toast('Alle Finalisten-Handys müssen verbunden sein. Wer nicht verbunden ist, öffnet die Seite neu oder scannt den QR-Code noch einmal.');
@@ -113,23 +117,30 @@ function setCfg(part) {
   store('makro.lehrer.cfg', cfg);
   send({ t: 'cfg', cfg });
 }
-// Einstellungen. modus: 'lobby' (mit Dauer des Qualifyings) oder 'finale'
+// Einstellungen. modus: 'lobby' (mit Dauer des Qualifyings und der Klassenrunde) oder 'finale'
 function optionen(el, modus) {
   el.innerHTML = '';
-  const add = (lbl, node, desc) => {
+  el.className = 'optgrid zwei';
+  const add = (lbl, node, desc, breit) => {
+    const o = document.createElement('div'); o.className = 'opt' + (breit ? ' breit' : '');
     const l = document.createElement('div'); l.className = 'lbl'; l.textContent = lbl;
-    el.append(l, node);
-    if (desc != null) { const d = document.createElement('div'); d.className = 'desc'; d.textContent = desc; el.appendChild(d); }
+    const r = document.createElement('div'); r.appendChild(node);
+    if (desc != null) { const d = document.createElement('div'); d.className = 'desc'; d.textContent = desc; r.appendChild(d); }
+    o.append(l, r); el.appendChild(o);
   };
   const neu = part => { setCfg(part); optionen(el, modus); };
-  add('Spielart', seg('Spielart', SPIELARTEN.map(a => [a, ART_TEXT[a].name]), cfg.art, art => neu({ art })), ART_TEXT[cfg.art].kurz);
-  add('Nährwert', seg('Nährwert', NW_WAHL.map(n => [n, NW_WAHL_TEXT[n]]), cfg.nw, nw => neu({ nw })), nwWahlKurz(cfg.art, cfg.nw));
-  if (cfg.art === 'reihe') add('Schwierigkeit', seg('Schwierigkeit', STUFEN.map(s => [s, STUFE_TEXT[s].name]), cfg.stufe, stufe => neu({ stufe })), STUFE_TEXT[cfg.stufe].kurz);
-  if (modus === 'lobby') add('Qualifying', seg('Dauer des Qualifyings', QUALI_MINUTEN.map(m => [m, m + ' Minuten']), Number(cfg.qmin), qmin => neu({ qmin })), QUALI_TEXT);
-  add('Finale', seg('Größe des Finales', FINAL_GROESSEN.map(n => [n, n + ' Personen']), Number(cfg.finalN), finalN => neu({ finalN })),
-    cfg.art === 'reihe' ? 'Im Finale ordnen alle gleichzeitig dieselbe Karte ein. Wer falsch liegt, scheidet aus.' : 'Im Finale bekommt die Bedarfskarte, wer am nächsten dran ist, ohne zu überschreiten.');
-  if (cfg.art === 'bedarf') add('Sieg mit', seg('Bedarfskarten zum Sieg', SIEG_KARTEN.map(n => [n, n + ' Karten']), Number(cfg.sieg), sieg => neu({ sieg })), 'So viele Bedarfskarten braucht man im Finale zum Sieg.');
-  add('Zeitlimit', seg('Zeitlimit', ZEITEN.map(z => [z, ZEIT_TEXT[z].name]), cfg.zeit, zeit => neu({ zeit })), ZEIT_TEXT[cfg.zeit].kurz);
+  add('Spielart', seg('Spielart', SPIELARTEN.map(a => [a, ART_TEXT[a].name]), cfg.art, art => neu({ art })), ART_TEXT[cfg.art].kurz, true);
+  add('Nährwert', seg('Nährwert', NW_WAHL.map(n => [n, NW_WAHL_TEXT[n]]), cfg.nw, nw => neu({ nw })), nwWahlKurz(cfg.art, cfg.nw), true);
+  if (cfg.art === 'reihe') add('Schwierigkeit', seg('Schwierigkeit', STUFEN.map(s => [s, STUFE_TEXT[s].name]), cfg.stufe, stufe => neu({ stufe })), STUFE_TEXT[cfg.stufe].kurz + (modus === 'lobby' ? ' (Klassenrunde: immer verdeckt)' : ''));
+  add('Zeitlimit', seg('Zeitlimit', ZEITEN.map(z => [z, ZEIT_TEXT[z].name]), cfg.zeit, zeit => neu({ zeit })),
+    modus === 'lobby' ? (cfg.zeit === 'an' ? 'Für Finale und Klassenrunde, sehr großzügig: Reihe 30 s + 3 s pro Karte, Bedarf 2 Min.' : 'Für Finale und Klassenrunde: Hängt eine Runde, beendest du sie am Beamer.') : ZEIT_TEXT[cfg.zeit].kurz);
+  if (modus === 'lobby') {
+    add('Qualifying', seg('Dauer des Qualifyings', QUALI_MINUTEN.map(m => [m, m + ' Min.']), Number(cfg.qmin), qmin => neu({ qmin })), 'Jede/r allein, der beste Versuch zählt. Die Besten kommen ins Finale.');
+    add('Klassenrunde', seg('Runden der Klassenrunde', KLASSE_RUNDEN.map(n => [n, n + ' Runden']), Number(cfg.runden), runden => neu({ runden })), 'Alle gleichzeitig, Runde für Runde, Auflösung am Beamer.');
+  }
+  add('Finale', seg('Größe des Finales', FINAL_GROESSEN.map(n => [n, n + ' Pers.']), Number(cfg.finalN), finalN => neu({ finalN })),
+    modus === 'lobby' ? null : cfg.art === 'reihe' ? 'Im Finale ordnen alle gleichzeitig dieselbe Karte ein. Wer falsch liegt, scheidet aus.' : 'Im Finale bekommt die Bedarfskarte, wer am nächsten dran ist, ohne zu überschreiten.');
+  if (cfg.art === 'bedarf') add('Sieg mit', seg('Bedarfskarten zum Sieg', SIEG_KARTEN.map(n => [n, n + ' Karten']), Number(cfg.sieg), sieg => neu({ sieg })), modus === 'lobby' ? null : 'So viele Bedarfskarten braucht man im Finale zum Sieg.');
 }
 function bigCount(num, text) {
   let el = $('#bigcount');
@@ -142,7 +153,9 @@ function bigCount(num, text) {
 function render() {
   if (!room) return;
   if (room.phase !== 'final' && room.phase !== 'podium') stopFinal();
+  if (room.phase !== 'klasse') stopKlasse();
   switch (room.phase) {
+    case 'klasse': return klasse();
     case 'lobby': return lobby();
     case 'quali': return quali();
     case 'final-setup': return setup();
@@ -169,21 +182,30 @@ function lobby() {
         <div class="tcard"><div class="optgrid" id="opts"></div></div>
         <div class="tactions">
           <p class="hint grow">💡 ${esc(tipp())}</p>
-          <button class="big-btn" id="btnStart">Qualifying starten <span class="kbd">Enter</span></button>
+          <button class="big-btn gruen" id="btnKlasse" title="Alle spielen gleichzeitig Runde für Runde, Auflösung am Beamer">Klassenrunde starten <span class="kbd">K</span></button>
+          <button class="big-btn" id="btnStart" title="Alle spielen allein auf dem Handy, die Besten kommen ins Finale">Qualifying starten <span class="kbd">Enter</span></button>
         </div>
       </div>
     </div></div>`;
     drawQR($('#qr'), joinUrl());
     optionen($('#opts'), 'lobby');
     $('#btnStart').onclick = startQuali;
+    $('#btnKlasse').onclick = startKlasse;
   }
   const ps = room.players;
   $('#nameCount').textContent = ps.length ? `Angemeldet: ${ps.length}` : 'Angemeldet';
+  $('#names').classList.toggle('viele', ps.length > 12);
   $('#names').innerHTML = ps.length ? ps.map(p => `<span class="name ${p.online ? '' : 'off'} ${bekannt.has(p.pid) ? '' : 'neu'}">${esc(p.name)}<button class="x" data-pid="${esc(p.pid)}" title="${esc(p.name)} entfernen" aria-label="${esc(p.name)} entfernen">×</button></span>`).join('')
     : '<p class="empty">Noch niemand da. Scannt den QR-Code und gebt euren Namen ein.</p>';
   ps.forEach(p => bekannt.add(p.pid));
   $('#names').querySelectorAll('.x').forEach(b => { b.onclick = () => send({ t: 'kick', pid: b.dataset.pid }); });
   $('#btnStart').disabled = !ps.length;
+  $('#btnKlasse').disabled = !ps.length;
+}
+function startKlasse() {
+  Ton.init();
+  if (!room || !room.players.length) return toast('Es hat sich noch niemand angemeldet.');
+  send({ t: 'klasse-start', cfg });
 }
 function startQuali() {
   Ton.init();
@@ -625,6 +647,278 @@ function konfetti() {
   setTimeout(() => c.remove(), 6500);
 }
 
+// ---------------------------------------------------------------- Klassenrunde
+let KB = null; // { nr, key, timers, raf, lastShown, n, von }
+function stopKlasse() {
+  if (!KB) return;
+  KB.timers.forEach(clearTimeout); cancelAnimationFrame(KB.raf); clearTimeout(KB.endeT);
+  bigCount(null);
+  KB = null;
+}
+const kat = (fn, when) => KB.timers.push(setTimeout(fn, Math.max(0, when - serverNow())));
+const kLauf = k => !!k && k.state === 'run' && !k.paused && !!k.startAt && serverNow() >= k.startAt;
+const kArt = k => k.art === 'reihe' ? `Reihe · ${NW[k.nw] ? NW[k.nw].name : ''}` : `Bedarf · ${NW_WAHL_TEXT[k.nwWahl]}`;
+const namenListe = (l, max = 12) => l.length <= max ? l.join(', ') : l.slice(0, max).join(', ') + ` und ${l.length - max} weitere`;
+
+function klasse() {
+  const k = room.klasse;
+  if (k.state === 'ende') {
+    if (screen === 'klasse-ende:' + k.nr) return;
+    if (screen === 'klasse-aufl:' + k.nr) return;
+    if (screen === 'klasse:' + k.nr && KB && k.last) {
+      // Erst die letzte Auflösung zeigen, dann den Endstand
+      if (KB.lastShown !== k.nr + ':' + k.last.runde) { KB.lastShown = k.nr + ':' + k.last.runde; kTon(k); }
+      KB.key = '';
+      kBuehne(k); kSeite(k); kPauseText(k);
+      kStatus(`Runde ${k.last.runde}<small>von ${k.runden} · Klassenrunde · ${esc(kArt(k))}</small>`, 'Gleich kommt der Endstand', 'beamer');
+      screen = 'klasse-aufl:' + k.nr;
+      KB.endeT = setTimeout(klasseEnde, k.art === 'bedarf' ? 9000 : 8000);
+      return;
+    }
+    return klasseEnde();
+  }
+  if (!KB || KB.nr !== k.nr || screen !== 'klasse:' + k.nr) {
+    stopKlasse();
+    screen = 'klasse:' + k.nr;
+    view.innerHTML = `<div class="tpage"><div class="final klasse">
+      <div class="fmain">
+        <div class="fbar"><div class="runde" id="kRunde"></div><div class="hinweis" id="kText"></div></div>
+        <div class="zeitbalken" id="kBarBox" hidden><i id="kBar"></i></div>
+        <div class="buehne" id="kBuehne"></div>
+      </div>
+      <div class="fside">
+        <div class="tcard kzaehler" id="kZaehler"></div>
+        <div class="tcard krang"><h3>Punkte</h3><ol id="kRang"></ol></div>
+        <div class="factions">
+          <button class="ghost-btn" id="kPause"></button>
+          <button class="ghost-btn" id="kStop">Runde beenden</button>
+          <button class="ghost-btn" id="kEnde">Klassenrunde beenden</button></div>
+      </div></div></div>`;
+    KB = { nr: k.nr, key: '', timers: [], raf: 0, lastShown: '', n: 0, von: 0, r: 0 };
+    $('#kPause').onclick = kPauseKnopf;
+    $('#kStop').onclick = () => {
+      const g = room && room.klasse;
+      if (!kLauf(g)) return toast('Die Runde hat noch nicht begonnen.');
+      if (confirm('Runde jetzt beenden? Wer noch nicht abgegeben hat, bekommt in dieser Runde nichts.')) send({ t: 'k-stopp', nr: g.nr, r: g.runde });
+    };
+    $('#kEnde').onclick = () => { if (confirm('Klassenrunde jetzt beenden? Danach kommt der Endstand.')) send({ t: 'k-ende' }); };
+  }
+  if (k.last && KB.lastShown !== k.nr + ':' + k.last.runde) { KB.lastShown = k.nr + ':' + k.last.runde; KB.key = ''; kTon(k); }
+  if (KB.r !== k.runde) { KB.r = k.runde; KB.n = k.anzahl || 0; }
+  kBuehne(k); kSeite(k); kPauseText(k);
+}
+function kStatus(runde, text, cls) {
+  $('#kRunde').innerHTML = runde;
+  const t = $('#kText'); t.textContent = text; t.className = 'hinweis ' + (cls || '');
+}
+// Hauptbereich: Erklärung, laufende Runde oder Auflösung der letzten Runde
+function kBuehne(k) {
+  const now = serverNow();
+  const phase = k.state === 'ende' ? 'aufl' : (k.paused || now < k.startAt) ? (k.last ? 'aufl' : 'vor') : 'lauf';
+  const key = [k.runde, phase, k.paused, k.state].join(':');
+  if (KB.key === key) return;
+  KB.key = key;
+  KB.timers.forEach(clearTimeout); KB.timers = [];
+  cancelAnimationFrame(KB.raf);
+  kZeit(null); $('#kBarBox').hidden = true;
+  const el = $('#kBuehne');
+  const titel = r => `Runde ${r}<small>von ${k.runden} · Klassenrunde · ${esc(kArt(k))}</small>`;
+  if (phase === 'vor') {
+    kStatus(titel(k.runde), 'Gleich geht’s los!', 'beamer');
+    el.innerHTML = `<div class="tcard intro"><h2>Klassenrunde</h2>${k.art === 'reihe'
+      ? `<p>Jede Runde kommt eine neue Karte. Ihr habt zwei Möglichkeiten: <b>einordnen</b> oder <b>zweifeln</b>.</p>
+         <p>Die Karte kommt dorthin, wo die <b>Mehrheit</b> sie hinlegt – auch wenn das falsch ist. Die Werte bleiben verdeckt.</p>
+         <p>Wer glaubt, dass in der Reihe ein Fehler steckt, <b>zweifelt</b>. Dann wird aufgedeckt: Fehler gefunden = <b>+${PUNKTE.zweifelRichtig}</b>, Reihe war richtig = <b>${PUNKTE.zweifelFalsch}</b>. Danach beginnt eine neue Reihe.</p>
+         <p>Jede richtig eingeordnete Karte bringt <b>+${PUNKTE.richtig}</b> – gutgeschrieben, wenn die Reihe aufgedeckt wird.</p>`
+      : `<p>Jede Runde kommt eine Bedarfskarte. Alle bekommen dieselben 10 Lebensmittel und wählen bis zu 5 aus.</p>
+         <p>Beste mögliche Kombination = <b>${PUNKTE.beste} Punkte</b>, mindestens 90 % des Zielwerts = <b>${PUNKTE.gut}</b>, mindestens ${TREFFER_PROZENT} % = <b>${PUNKTE.ok}</b>. Wer den Zielwert überschreitet, bekommt nichts.</p>`}</div>`;
+    if (k.first && !k.paused) for (let s = 3; s >= 1; s--) kat(() => { bigCount(s, 'Alle schauen aufs eigene Handy!'); Ton.piep(false); }, k.startAt - s * 1000);
+  } else if (phase === 'aufl') {
+    bigCount(null);
+    const L = k.last;
+    el.innerHTML = k.art === 'reihe' ? kReiheAufl(L) : kBedarfAufl(L);
+    if (k.state === 'ende') kStatus(titel(L.runde), 'Letzte Runde', 'beamer');
+    else if (k.paused) kStatus(titel(L.runde), 'Pause', 'beamer');
+    else {
+      kStatus(titel(L.runde), 'Auflösung', 'beamer');
+      const tickNext = () => {
+        const n = $('#naechste'); if (!n || !KB) return;
+        const rest = k.startAt - serverNow();
+        n.textContent = rest > 0 ? `Nächste Runde in ${Math.ceil(rest / 1000)} s` : '';
+        if (rest > 0) KB.timers.push(setTimeout(tickNext, 250));
+      };
+      tickNext();
+    }
+  } else {
+    bigCount(null);
+    Ton.karte();
+    if (k.art === 'reihe') {
+      kStatus(titel(k.runde), 'Einordnen oder zweifeln?', 'tippen');
+      el.innerHTML = `<div class="reihebuehne">
+        <div class="neuspalte"><span class="eyebrow">Wohin gehört …</span>${lmGross(k.neu)}
+          <p class="hint">Auf dem Handy einordnen – oder zweifeln, wenn ihr glaubt, dass in der Reihe schon ein Fehler steckt.</p>
+          <p class="hint">Reihe ${k.reiheNr} · Karte ${k.kPos} von ${k.kLen}</p></div>
+        <div class="reihebox beamer">${reiheHtml(k.reihe, k.nw, { geordnet: true, zeigen: false, cls: k.reihe.length > 8 ? 'dicht' : '' })}</div></div>`;
+    } else {
+      kStatus(titel(k.runde), 'Triff den Zielwert!', 'tippen');
+      el.innerHTML = `<div class="bedarfbuehne">${bedarfKarte(k.b, { cls: 'gross' })}
+        <div class="handbeamer">${k.hand.map(i => lmKarte(i)).join('')}</div>
+        <p class="hint">Bis zu 5 Lebensmittel (je 100 g) auf dem Handy auswählen.</p></div>`;
+    }
+    const box = $('#kBarBox'); box.hidden = !k.deadline;
+    if (k.deadline) {
+      const limit = zeitLimit(k.art, k.art === 'reihe' ? k.reihe.length : 0, k.zeit);
+      const tick = () => {
+        if (!KB || KB.key !== key) return;
+        const rest = k.deadline - serverNow();
+        kZeit(Math.max(0, rest), limit);
+        if (rest > 0) KB.raf = requestAnimationFrame(tick);
+      };
+      KB.raf = requestAnimationFrame(tick);
+      kat(() => send({ t: 'k-tick', nr: k.nr, r: k.runde }), k.deadline + GNADE + 200);
+      kat(() => send({ t: 'k-tick', nr: k.nr, r: k.runde }), k.deadline + GNADE + 2500);
+    }
+  }
+  if (phase !== 'lauf' && k.state === 'run' && !k.paused) kat(() => { if (room && room.klasse) klasse(); }, k.startAt);
+}
+function kZeit(rest, gesamt) {
+  const box = $('#kBarBox'), bar = $('#kBar'); if (!box) return;
+  if (rest == null) { bar.style.transform = 'scaleX(0)'; box.classList.remove('knapp'); return; }
+  bar.style.transform = `scaleX(${Math.max(0, Math.min(1, rest / gesamt))})`;
+  box.classList.toggle('knapp', rest < 10000);
+}
+// Auflösung Reihe: entweder „die Mehrheit hat entschieden“ (verdeckt) oder aufgedeckt mit Fehlern
+function kReiheAufl(L) {
+  const dicht = n => n > 8 ? 'dicht' : '';
+  if (L.aufgedeckt) {
+    const fehler = L.fehler.length > 0;
+    let titel, cls;
+    if (L.aufgedeckt === 'zweifel') { titel = L.zweifelRecht ? 'Zu Recht gezweifelt! Die Reihe hatte einen Fehler.' : 'Die Reihe war richtig. Zweifeln hat Punkte gekostet.'; cls = L.zweifelRecht ? 'good' : 'bad'; }
+    else { titel = (L.aufgedeckt === 'voll' ? 'Reihe voll – aufgedeckt! ' : 'Aufgedeckt! ') + (fehler ? 'Ein Fehler ist unbemerkt geblieben.' : 'Alles richtig! 🎉'); cls = fehler ? 'bad' : 'good'; }
+    return `<div class="reihebuehne aufl">
+      <div class="neuspalte">
+        <div class="aufltitel ${cls}">${esc(titel)}</div>
+        ${L.zweifler.length ? `<p><b>Gezweifelt (${L.zweifler.length}):</b> ${esc(namenListe(L.zweifler))}</p>` : ''}
+        ${L.aufgedeckt === 'zweifel' ? `<p class="hint">Die neue Karte kam nicht mehr in die Reihe:</p>${lmGross(L.neu, { nw: L.nw, zeigen: true })}` : ''}
+        ${fehler ? '<p><span class="schild">falsch herum</span> Rot markiert: Diese Karten liegen in der falschen Reihenfolge.</p>' : ''}
+        <p class="hint">Punkte fürs Einordnen in dieser Reihe sind jetzt gutgeschrieben.</p>
+        <p class="hint" id="naechste"></p>
+      </div>
+      <div class="reihebox beamer">${reiheHtml(L.offen, L.nw, { geordnet: true, zeigen: true, luecken: false, cls: dicht(L.offen.length), karteCls: (i, pos) => L.fehler.includes(pos) || L.fehler.includes(pos - 1) ? 'falschrum' : '' })}</div>
+    </div>`;
+  }
+  const max = Math.max(1, ...L.stimmen);
+  const chip = g => L.stimmen[g] ? `<span class="stimmzahl"><i style="width:${Math.round(L.stimmen[g] / max * 100)}%"></i><b>${L.stimmen[g]}</b></span>` : '';
+  return `<div class="reihebuehne aufl">
+    <div class="neuspalte">
+      <div class="aufltitel neutral">Die Mehrheit hat entschieden</div>
+      ${lmGross(L.neu)}
+      <p>${L.gap >= 0 ? `<b>${L.stimmen[L.gap]} von ${L.gelegt}</b> haben die Karte dorthin gelegt, wo sie jetzt liegt. Die Zahlen zeigen, wie viele welche Lücke gewählt haben.` : 'Niemand hat die Karte eingeordnet. Sie kommt nicht in die Reihe.'}</p>
+      <p class="hint">Ob das stimmt? Wer einen Fehler vermutet, zweifelt in der nächsten Runde.</p>
+      <p class="hint" id="naechste"></p>
+    </div>
+    <div class="reihebox beamer">${reiheHtml(L.vor, L.nw, {
+      geordnet: true, zeigen: false, cls: dicht(L.vor.length + 1),
+      lueckeCls: g => g === L.gap ? 'mehrheit' : L.stimmen[g] ? 'stimmen' : 'leer',
+      lueckeInhalt: g => g === L.gap ? lmKarte(L.neu, { cls: 'neu', extra: `<span class="schilder">${chip(g)}</span>` }) : chip(g),
+    })}</div>
+  </div>`;
+}
+// Auflösung Bedarf: beste Kombination, Verteilung der Punkte, häufig gewählte Lebensmittel
+function kBedarfAufl(L) {
+  const b = BK(L.b), nw = b.wert, v = L.verteilung, ges = Math.max(1, L.anzahl);
+  const zeilen = [
+    ['beste', `${PUNKTE.beste} Punkte: beste Kombination`, 'ok'],
+    ['gut', `${PUNKTE.gut} Punkte: mindestens 90 %`, 'ok'],
+    ['ok', `${PUNKTE.ok} Punkt: mindestens ${TREFFER_PROZENT} %`, 'ok'],
+    ['wenig', '0 Punkte: zu wenig', 'leer'],
+    ['drueber', '0 Punkte: zu viel', 'bad'],
+  ];
+  const haeufig = L.hand.map((i, k) => ({ i, n: L.haeufig[k], best: L.beste.pick.includes(i) })).sort((a, c) => (c.n - a.n) || (c.best - a.best));
+  const maxH = Math.max(1, ...haeufig.map(x => x.n));
+  return `<div class="bedarfbuehne aufl">
+    <div class="bkzeile">${bedarfKarte(L.b)}<div class="beste"><h3>Beste Möglichkeit</h3><p>${esc(kombiText(L.beste.pick, nw))}</p><p class="hint" id="naechste"></p></div></div>
+    <div class="kstat">
+      <div class="tcard"><h3>So habt ihr abgeschnitten (${L.anzahl} Abgaben)</h3>
+        <div class="verteilung">${zeilen.map(([key, text, cls]) => `<div class="vz ${cls}"><span>${esc(text)}</span><i><b style="width:${Math.round(v[key] / ges * 100)}%"></b></i><em>${v[key]}</em></div>`).join('')}</div></div>
+      <div class="tcard"><h3>So oft gewählt <small>✓ = in der besten Kombination</small></h3>
+        <div class="haeufig">${haeufig.map(x => `<div class="hz ${x.best ? 'best' : ''}"><span class="lexbild">${bild(LM(x.i).bild)}</span><span class="hzn">${esc(LM(x.i).name)} <small>${esc(mitEinheit(wert(LM(x.i), nw), nw))}</small></span><i><b style="width:${Math.round(x.n / maxH * 100)}%"></b></i><em>${x.n}${x.best ? ' ✓' : ''}</em></div>`).join('')}</div></div>
+    </div>
+  </div>`;
+}
+function kTon(k) {
+  const L = k.last;
+  if (k.art === 'reihe') {
+    if (!L.aufgedeckt) return Ton.piep(true);
+    Ton.aufdecken(8);
+    const gut = L.aufgedeckt === 'zweifel' ? L.zweifelRecht : !L.fehler.length;
+    setTimeout(() => (gut ? Ton.richtig() : Ton.fehler()), 600);
+  } else {
+    Ton.aufdecken(6);
+    setTimeout(() => Ton.richtig(), 600);
+  }
+}
+// Seitenleiste: Abgaben dieser Runde und Punkte-Rangliste
+function kSeite(k) {
+  const z = $('#kZaehler'); if (!z) return;
+  if (kLauf(k)) {
+    const n = Math.max(KB.n || 0, k.anzahl || 0), von = KB.von || k.online || 0;
+    z.innerHTML = `<b>${n}</b><span>von ${von} haben abgegeben</span>`;
+  } else z.innerHTML = `<b>${k.gespielt}</b><span>von ${k.runden} Runden gespielt</span>`;
+  const r = k.rangliste || [];
+  const platz = x => 1 + r.filter(y => y.p > x.p).length; // gleiche Punktzahl = gleicher Platz
+  $('#kRang').innerHTML = r.slice(0, 10).map(x => `<li class="${platz(x) <= 3 && x.p > 0 ? 'top' : ''}"><span class="p">${platz(x)}.</span><span class="nm">${esc(x.name)}</span><b>${x.p}</b></li>`).join('') + (r.length > 10 ? `<li class="mehr">… und ${r.length - 10} weitere</li>` : '');
+  $('#kStop').disabled = !kLauf(k);
+}
+function kFortschritt(m) {
+  if (!KB || !room || !room.klasse || m.nr !== KB.nr || m.r !== room.klasse.runde) return;
+  KB.n = m.n; KB.von = m.von;
+  kSeite(room.klasse);
+}
+setInterval(() => { if (KB && room && room.phase === 'klasse' && room.klasse && room.klasse.state === 'run') { kBuehne(room.klasse); kSeite(room.klasse); kPauseText(room.klasse); } }, 500);
+function kPauseText(k) {
+  const b = $('#kPause'); if (!b) return;
+  if (k.state !== 'run') { b.hidden = true; $('#kStop').hidden = true; $('#kEnde').hidden = true; return; }
+  b.hidden = false;
+  const zwischen = !k.paused && serverNow() < k.startAt;
+  b.innerHTML = k.paused ? 'Weiter <span class="kbd">Leertaste</span>' : k.haltNext ? 'Pause vorgemerkt' : zwischen ? 'Anhalten <span class="kbd">Leertaste</span>' : 'Nach der Runde anhalten <span class="kbd">Leertaste</span>';
+  b.classList.toggle('big-btn', !!k.paused); b.classList.toggle('ghost-btn', !k.paused);
+  b.disabled = !!k.haltNext && !k.paused;
+}
+function kPauseKnopf() {
+  const k = room && room.klasse; if (!k || k.state !== 'run') return;
+  Ton.init();
+  send({ t: k.paused ? 'k-weiter' : 'k-halt', nr: k.nr });
+}
+function klasseEnde() {
+  const k = room && room.klasse; if (!k || k.state !== 'ende' || room.phase !== 'klasse') return;
+  stopKlasse();
+  screen = 'klasse-ende:' + k.nr;
+  const r = k.rangliste || [];
+  // Gleiche Punktzahl = gleicher Platz
+  const platz = x => 1 + r.filter(y => y.p > x.p).length;
+  const w = r[0];
+  view.innerHTML = `<div class="tpage"><div class="podium">
+      <div class="tcard winner">
+        <div class="pokal">🏆</div>
+        <h2>${w ? esc(w.name) + ' gewinnt!' : 'Klassenrunde vorbei'}</h2>
+        <p>Klassenrunde · ${esc(kArt(k))} · ${k.gespielt} ${k.gespielt === 1 ? 'Runde' : 'Runden'} · ${r.length} Mitspielende</p>
+        <ol class="places">${r.slice(0, 5).map(x => `<li>${platz(x)}. ${esc(x.name)} <span>${x.p} ${x.p === 1 ? 'Punkt' : 'Punkte'}</span></li>`).join('')}</ol>
+      </div>
+      <div class="tcard seqcard"><h2 style="font-size:1.3em">Endstand</h2>
+        <ol class="kliste">${r.map(x => `<li><span class="p">${platz(x)}.</span><span class="nm">${esc(x.name)}</span>${k.art === 'reihe' && (x.zweifelOk || x.zweifelFalsch) ? `<small>Zweifel ${x.zweifelOk} ✓ ${x.zweifelFalsch} ✗</small>` : '<small></small>'}<b>${x.p}</b></li>`).join('')}</ol></div>
+    </div>
+    <div class="tactions"><button class="ghost-btn" id="btnLobby">Neues Spiel <span class="kbd">Esc</span></button>
+      <button class="ghost-btn" id="btnNochmal">Noch eine Klassenrunde <span class="kbd">K</span></button><span class="grow"></span>
+      <button class="big-btn" id="btnZumFinale" title="Die Besten nach Punkten spielen das Finale">Weiter zum Finale <span class="kbd">Enter</span></button></div>
+  </div>`;
+  $('#btnLobby').onclick = toLobby;
+  $('#btnNochmal').onclick = () => { Ton.init(); send({ t: 'klasse-start', cfg }); };
+  $('#btnZumFinale').onclick = () => send({ t: 'klasse-final' });
+  Ton.fanfare();
+  konfetti();
+}
+
 // ---------------------------------------------------------------- Tasten
 document.addEventListener('keydown', e => {
   if (e.target && /INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;
@@ -636,10 +930,15 @@ document.addEventListener('keydown', e => {
     else if (room.phase === 'quali') endQuali();
     else if (room.phase === 'final-setup') startFinal();
     else if (room.phase === 'podium' && screen.startsWith('podium')) { Ton.init(); send({ t: 'revanche', cfg }); }
+    else if (room.phase === 'klasse' && screen.startsWith('klasse-ende')) send({ t: 'klasse-final' });
   } else if (e.key === ' ') {
     if (room.phase === 'final') { e.preventDefault(); const b = $('#btnPause'); if (b && !b.disabled) pauseKnopf(); }
+    if (room.phase === 'klasse') { e.preventDefault(); const b = $('#kPause'); if (b && !b.disabled && !b.hidden) kPauseKnopf(); }
+  } else if (e.key === 'k' || e.key === 'K') {
+    if (room.phase === 'lobby') startKlasse();
+    else if (room.phase === 'klasse' && screen.startsWith('klasse-ende')) { Ton.init(); send({ t: 'klasse-start', cfg }); }
   } else if (e.key === 'Escape') {
-    if (room.phase === 'final-setup' || (room.phase === 'podium' && screen.startsWith('podium'))) toLobby();
+    if (room.phase === 'final-setup' || (room.phase === 'podium' && screen.startsWith('podium')) || (room.phase === 'klasse' && screen.startsWith('klasse-ende'))) toLobby();
   } else if (e.key === 'f' || e.key === 'F') vollbild();
   else if (e.key === 'm' || e.key === 'M') btnTon.click();
 });

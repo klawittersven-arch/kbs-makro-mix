@@ -211,3 +211,49 @@ export function bewerte(handIdx, pickPos, bIdx) {
 export function vergleichQuali(a, b) {
   return (b.lvl - a.lvl) || ((b.acc || 0) - (a.acc || 0)) || (a.ms - b.ms);
 }
+
+// ---------------------------------------------------------------- Klassenrunde (alle gleichzeitig)
+export const KLASSE_RUNDEN = [10, 15, 20];
+export const KLASSE_TEXT = 'Die ganze Klasse spielt gleichzeitig. Jede Runde kommt eine neue Karte bzw. Bedarfskarte, die Auflösung kommt am Beamer.';
+// Punkte in der Klassenrunde
+export const PUNKTE = {
+  richtig: 1,         // Reihe: Karte an eine passende Stelle gelegt (wird erst beim Aufdecken gutgeschrieben)
+  zweifelRichtig: 3,  // Reihe: gezweifelt, und die Reihe hatte wirklich einen Fehler
+  zweifelFalsch: -2,  // Reihe: gezweifelt, aber die Reihe war richtig (der Punktestand fällt nie unter 0)
+  beste: 3,           // Bedarf: die beste mögliche Kombination getroffen
+  gut: 2,             // Bedarf: mindestens 90 % des Zielwerts, ohne zu überschreiten
+  ok: 1,              // Bedarf: mindestens TREFFER_PROZENT (80 %) des Zielwerts
+};
+// Pause nach einer Runde: Auflösung zeigen (Reihe aufgedeckt dauert länger)
+export const KLASSE_PAUSE = { reihe: 7000, aufgedeckt: 14000, bedarf: 13000 };
+
+// Klassen-Reihe in gelegter Reihenfolge (unten → oben): Wo steht eine Karte falsch?
+// Rückgabe: Positionen p, an denen Karte p mehr hat als Karte p+1 darüber.
+export function reiheFehler(geordnet, nw) {
+  const out = [];
+  for (let p = 0; p + 1 < geordnet.length; p++) if (wert(LEBENSMITTEL[geordnet[p]], nw) > wert(LEBENSMITTEL[geordnet[p + 1]], nw)) out.push(p);
+  return out;
+}
+// Passt die neue Karte in Lücke g der gelegten Reihe? (Nachbarn unten kleiner, oben größer)
+export function passtLuecke(geordnet, neu, nw, g) {
+  const x = wert(LEBENSMITTEL[neu], nw);
+  const unten = g > 0 ? wert(LEBENSMITTEL[geordnet[g - 1]], nw) : -Infinity;
+  const oben = g < geordnet.length ? wert(LEBENSMITTEL[geordnet[g]], nw) : Infinity;
+  return unten < x && x < oben;
+}
+// Mehrheit: Lücke mit den meisten Stimmen (bei Gleichstand die untere)
+export function mehrheit(gaps, n) {
+  const stimmen = Array.from({ length: n + 1 }, () => 0);
+  for (const g of gaps) if (g >= 0 && g <= n) stimmen[g]++;
+  let best = -1;
+  stimmen.forEach((c, g) => { if (c > 0 && (best < 0 || c > stimmen[best])) best = g; });
+  return { gap: best, stimmen };
+}
+// Bedarf: Punkte für eine Abgabe (Summe und Zielwert in Zehnteln, best = beste mögliche Summe)
+export function bedarfPunkte(sumZ, zielZ, bestZ, leer = false) {
+  if (leer || sumZ > zielZ) return 0;
+  if (sumZ === bestZ) return PUNKTE.beste;
+  if (sumZ * 100 >= zielZ * 90) return PUNKTE.gut;
+  if (sumZ * 100 >= zielZ * TREFFER_PROZENT) return PUNKTE.ok;
+  return 0;
+}

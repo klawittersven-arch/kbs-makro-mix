@@ -330,3 +330,185 @@ test('Finale nur mit verbundenen Handys, Finalisten können nicht entfernt werde
   assert.equal(r.phase, 'lobby'); assert.equal(r.final, null);
   assert.equal(r.players.length, 2, 'alle bleiben angemeldet');
 });
+
+// ================================================================ Klassenrunde
+import { passtLuecke, reiheFehler, mehrheit, bedarfPunkte, PUNKTE, KLASSE_PAUSE } from '../public/js/regeln.js';
+
+async function klassenrunde(n, cfg) {
+  const { R, T, P } = await klasse(n, cfg);
+  await R.msg(T, { t: 'klasse-start', cfg });
+  return { R, T, P, k: () => room(R, T).klasse };
+}
+// passende und unpassende Lücke in der gelegten Reihe
+function lk(k) {
+  const n = k.reihe.length;
+  const gut = [...Array(n + 1).keys()].filter(g => passtLuecke(k.reihe, k.neu, k.nw, g));
+  const schlecht = [...Array(n + 1).keys()].filter(g => !gut.includes(g));
+  return { gut: gut[0], schlecht: schlecht[0] };
+}
+
+test('Regeln der Klassenrunde: Fehler finden, Mehrheit, Bedarf-Punkte', () => {
+  const idx = id => LEBENSMITTEL.findIndex(l => l.id === id);
+  const reihe = [idx('apfel'), idx('butter'), idx('nudeln')]; // 52, 744, 157 kcal (von unten nach oben gelegt)
+  assert.deepEqual(reiheFehler(reihe, 'kcal'), [1], 'Butter liegt unter den Nudeln');
+  assert.deepEqual(reiheFehler([idx('apfel'), idx('nudeln')], 'kcal'), []);
+  assert.ok(passtLuecke(reihe, idx('gurke'), 'kcal', 0));
+  assert.ok(!passtLuecke(reihe, idx('gurke'), 'kcal', 1));
+  assert.ok(passtLuecke(reihe, idx('olivenoel'), 'kcal', 3));
+  assert.deepEqual(mehrheit([1, 2, 2, 0], 3), { gap: 2, stimmen: [1, 1, 2, 0] });
+  assert.equal(mehrheit([1, 0], 3).gap, 0, 'Gleichstand: untere Lücke');
+  assert.equal(mehrheit([], 3).gap, -1);
+  assert.equal(bedarfPunkte(4890, 5000, 4890), PUNKTE.beste);
+  assert.equal(bedarfPunkte(4600, 5000, 4890), PUNKTE.gut);
+  assert.equal(bedarfPunkte(4100, 5000, 4890), PUNKTE.ok);
+  assert.equal(bedarfPunkte(3000, 5000, 4890), 0);
+  assert.equal(bedarfPunkte(5100, 5000, 4890), 0, 'zu viel');
+});
+
+test('Klassenrunde Reihe: Mehrheit legt falsch, Zweifel deckt auf, Punkte erst beim Aufdecken', async () => {
+  const { R, T, P, k } = await klassenrunde(3, { art: 'reihe', nw: 'kcal', runden: 10 });
+  let K = k();
+  assert.equal(room(R, T).phase, 'klasse');
+  assert.equal(K.reihe.length, 1);
+  assert.ok(R.last(P[0], 'you').klasse.me, 'Handy kennt seinen Stand');
+  R.tick(VORLAUF_START + 10);
+  // Runde 1: Zweifeln geht bei nur einer Karte nicht
+  await R.msg(P[0], { t: 'k-reihe', nr: K.nr, r: 1, zweifel: true, ms: 100 });
+  assert.equal(R.last(T, 'kp'), undefined, 'abgelehnt');
+  // Lena richtig, Tom und Aylin falsch → Mehrheit falsch
+  let L = lk(K);
+  await R.msg(P[0], { t: 'k-reihe', nr: K.nr, r: 1, gap: L.gut, ms: 2000 });
+  assert.equal(R.last(T, 'kp').n, 1, 'Beamer bekommt nur eine kurze Fortschrittsmeldung');
+  await R.msg(P[1], { t: 'k-reihe', nr: K.nr, r: 1, gap: L.schlecht, ms: 2000 });
+  await R.msg(P[2], { t: 'k-reihe', nr: K.nr, r: 1, gap: L.schlecht, ms: 2000 });
+  K = k();
+  assert.equal(K.runde, 2);
+  assert.equal(K.last.gap, L.schlecht);
+  assert.equal(K.last.aufgedeckt, '');
+  assert.equal(K.reihe.length, 2);
+  assert.equal(reiheFehler(K.reihe, K.nw).length, 1, 'die Reihe hat jetzt einen Fehler');
+  assert.ok(K.rangliste.every(x => x.p === 0), 'noch keine Punkte sichtbar');
+  assert.ok(K.startAt >= R.now() + KLASSE_PAUSE.reihe - 10);
+  // Runde 2: Tom zweifelt, die anderen legen → aufdecken
+  R.tick(KLASSE_PAUSE.reihe + 10);
+  L = lk(K);
+  await R.msg(P[1], { t: 'k-reihe', nr: K.nr, r: 2, zweifel: true, ms: 1000 });
+  await R.msg(P[0], { t: 'k-reihe', nr: K.nr, r: 2, gap: 0, ms: 1000 });
+  await R.msg(P[2], { t: 'k-reihe', nr: K.nr, r: 2, gap: 0, ms: 1000 });
+  K = k();
+  assert.equal(K.last.aufgedeckt, 'zweifel');
+  assert.equal(K.last.zweifelRecht, true);
+  assert.deepEqual(K.last.zweifler, ['Tom K.']);
+  assert.equal(K.reihe.length, 1, 'neue Reihe');
+  assert.equal(K.reiheNr, 2);
+  const p = name => K.rangliste.find(x => x.name === name);
+  assert.equal(p('Tom K.').p, PUNKTE.zweifelRichtig);
+  assert.ok(p('Lena K.').p >= PUNKTE.richtig, 'Lena hatte in Runde 1 richtig gelegt');
+  assert.equal(R.last(P[1], 'you').klasse.me.zuletzt.plus, PUNKTE.zweifelRichtig);
+  assert.ok(K.startAt >= R.now() + KLASSE_PAUSE.aufgedeckt - 10);
+});
+
+test('Klassenrunde Reihe: falscher Zweifel kostet Punkte (nie unter 0), Pause, Ende, weiter zum Finale', async () => {
+  const { R, T, P, k } = await klassenrunde(3, { art: 'reihe', nw: 'fett', runden: 10, finalN: 2 });
+  let K = k();
+  R.tick(VORLAUF_START + 10);
+  // Runde 1: alle richtig
+  for (const c of P) await R.msg(c, { t: 'k-reihe', nr: K.nr, r: 1, gap: lk(K).gut, ms: 1000 });
+  K = k(); R.tick(K.startAt - R.now() + 10);
+  // Runde 2: Max zweifelt zu Unrecht
+  await R.msg(P[2], { t: 'k-reihe', nr: K.nr, r: 2, zweifel: true, ms: 1000 });
+  for (const c of P.slice(0, 2)) await R.msg(c, { t: 'k-reihe', nr: K.nr, r: 2, gap: lk(K).gut, ms: 1000 });
+  K = k();
+  assert.equal(K.last.zweifelRecht, false);
+  const p = name => K.rangliste.find(x => x.name === name).p;
+  assert.equal(p('Lena K.'), 2 * PUNKTE.richtig);
+  assert.equal(p('Aylin K.'), Math.max(0, PUNKTE.richtig + PUNKTE.zweifelFalsch), 'nie unter 0');
+  // Pause zwischen zwei Runden
+  await R.msg(T, { t: 'k-halt', nr: K.nr });
+  K = k();
+  assert.equal(K.paused, true);
+  R.tick(60000);
+  const vorher = T.inbox.length;
+  await R.msg(P[0], { t: 'k-reihe', nr: K.nr, r: 3, gap: 0, ms: 1 });
+  assert.equal(T.inbox.length, vorher, 'in der Pause keine Abgabe');
+  await R.msg(T, { t: 'k-weiter', nr: K.nr });
+  K = k();
+  R.tick(K.startAt - R.now() + 10);
+  // Runde 3: nur Lena gibt ab, die Zeit läuft ab → ein Handy meldet das Ende
+  await R.msg(P[0], { t: 'k-reihe', nr: K.nr, r: 3, gap: lk(K).gut, ms: 1000 });
+  R.tick(K.deadline - R.now() + GNADE + 10);
+  await R.msg(P[1], { t: 'k-tick', nr: K.nr, r: 3 });
+  K = k();
+  assert.equal(K.runde, 4);
+  // Lehrkraft beendet vorzeitig → letzte Reihe wird aufgedeckt, Punkte gutgeschrieben
+  await R.msg(T, { t: 'k-ende' });
+  K = k();
+  assert.equal(K.state, 'ende');
+  assert.equal(K.last.aufgedeckt, 'schluss');
+  assert.equal(K.gespielt, 3);
+  assert.equal(K.rangliste[0].name, 'Lena K.');
+  assert.equal(R.last(P[0], 'you').klasse.me.platz, 1);
+  // Weiter zum Finale: die Besten nach Punkten
+  await R.msg(T, { t: 'klasse-final' });
+  const r = room(R, T);
+  assert.equal(r.phase, 'final-setup');
+  assert.equal(r.final.p.length, 2);
+  assert.equal(r.final.p[0], P[0].pid);
+  // Neues Spiel räumt die Klassenrunde ab
+  await R.msg(T, { t: 'to-lobby' });
+  assert.equal(room(R, T).klasse, null);
+});
+
+test('Klassenrunde: nicht verbundene Handys halten nicht auf, Ende nach der letzten Runde', async () => {
+  const { R, T, P, k } = await klassenrunde(3, { art: 'reihe', nw: 'kh', runden: 10, zeit: 'aus' });
+  let K = k();
+  assert.equal(K.deadline, 0);
+  R.tick(VORLAUF_START + 10);
+  // Aylin geht offline, während die anderen schon abgegeben haben → Runde endet sofort
+  await R.msg(P[0], { t: 'k-reihe', nr: K.nr, r: 1, gap: lk(K).gut, ms: 1000 });
+  await R.msg(P[1], { t: 'k-reihe', nr: K.nr, r: 1, gap: lk(K).gut, ms: 1000 });
+  assert.equal(k().runde, 1);
+  R.conns.splice(R.conns.indexOf(P[2]), 1);
+  await R.logic.close(P[2]);
+  assert.equal(k().runde, 2);
+  // Ohne Zeitlimit läuft nichts ab; die Lehrkraft beendet die Runde
+  for (let r = 2; r <= 10; r++) {
+    K = k(); R.tick(K.startAt - R.now() + 10);
+    if (r === 5) { await R.msg(T, { t: 'k-tick', nr: K.nr, r }); assert.equal(k().runde, 5); await R.msg(T, { t: 'k-stopp', nr: K.nr, r }); continue; }
+    for (const c of P.slice(0, 2)) await R.msg(c, { t: 'k-reihe', nr: K.nr, r, gap: lk(K).gut, ms: 500 });
+  }
+  K = k();
+  assert.equal(K.state, 'ende');
+  assert.equal(K.gespielt, 10);
+  assert.ok(K.last.aufgedeckt, 'am Ende wird aufgedeckt');
+  assert.ok(K.rangliste[0].p >= 8);
+  // Noch eine Klassenrunde
+  await R.msg(T, { t: 'klasse-start' });
+  assert.equal(k().state, 'run');
+  assert.equal(k().gespielt, 0);
+});
+
+test('Klassenrunde Bedarf: Punkte nach Nähe zum Zielwert, Verteilung, häufig gewählt', async () => {
+  const { R, T, P, k } = await klassenrunde(4, { art: 'bedarf', nw: 'mix', runden: 10 });
+  let K = k();
+  assert.equal(K.hand.length, 10);
+  R.tick(VORLAUF_START + 10);
+  const f = { b: K.b, hand: K.hand };
+  await R.msg(P[0], { t: 'k-bedarf', nr: K.nr, r: 1, pick: auswahl(f, 'best'), ms: 9000 });
+  await R.msg(P[1], { t: 'k-bedarf', nr: K.nr, r: 1, pick: auswahl(f, 'viel'), ms: 9000 });
+  await R.msg(P[2], { t: 'k-bedarf', nr: K.nr, r: 1, pick: [0, 1, 2, 3, 4, 5], ms: 9000 }); // ungültig
+  assert.equal(R.last(T, 'kp').n, 2);
+  await R.msg(P[2], { t: 'k-bedarf', nr: K.nr, r: 1, pick: auswahl(f, 'best'), ms: 8000 });
+  await R.msg(P[3], { t: 'k-bedarf', nr: K.nr, r: 1, pick: auswahl(f, 'best'), ms: 7000 });
+  K = k();
+  assert.equal(K.runde, 2);
+  assert.equal(K.last.verteilung.beste, 3);
+  assert.equal(K.last.verteilung.drueber, 1);
+  assert.equal(K.last.haeufig.reduce((a, b) => a + b, 0) > 0, true);
+  const p = name => K.rangliste.find(x => x.name === name).p;
+  assert.equal(p('Lena K.'), PUNKTE.beste);
+  assert.equal(p('Tom K.'), 0);
+  assert.equal(K.rangliste[0].name, 'Max K.', 'bei Gleichstand: weniger Bedenkzeit');
+  assert.notEqual(K.b + ':' + K.hand.join(), f.b + ':' + f.hand.join(), 'neue Bedarfskarte');
+  assert.deepEqual(R.last(P[1], 'you').klasse.me.zuletzt.drueber, true);
+});

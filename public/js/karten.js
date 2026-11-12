@@ -49,9 +49,11 @@ export const zielText = b => b.wert === 'kcal' ? `${zielZahl(b.ziel)} kcal` : `$
 /*
  * Die Reihe steht senkrecht: oben der höchste Wert, unten der niedrigste (wie am Tisch: „oberhalb = mehr“).
  * Lücke g (0 … n) = Anzahl der Karten mit kleinerem Wert; g = 0 ist ganz unten.
+ * o.geordnet: Die Reihe ist schon in der gelegten Reihenfolge (von unten nach oben) und kann Fehler enthalten
+ * (Klassenrunde). Dann ist Lücke g einfach die Stelle g in dieser Reihenfolge.
  */
 export function reiheHtml(reiheIdx, nw, o = {}) {
-  const sort = sortiert(reiheIdx, nw);
+  const sort = o.geordnet ? reiheIdx.slice() : sortiert(reiheIdx, nw);
   const n = sort.length;
   const luecke = g => {
     if (o.luecken === false) return '';
@@ -63,7 +65,7 @@ export function reiheHtml(reiheIdx, nw, o = {}) {
     h += luecke(k);
     if (k > 0) {
       const i = sort[k - 1];
-      h += lmKarte(i, { nw, zeigen: o.zeigen || (o.zeigeIdx && o.zeigeIdx.includes(i)), verdeckt: !o.zeigen, cls: o.karteCls ? o.karteCls(i) : '' });
+      h += lmKarte(i, { nw, zeigen: o.zeigen || (o.zeigeIdx && o.zeigeIdx.includes(i)), verdeckt: !o.zeigen, cls: o.karteCls ? o.karteCls(i, k - 1) : '' });
     }
   }
   return h + `<div class="pfeil unten">▼ ${esc(NW[nw].weniger)}</div></div>`;
@@ -78,19 +80,27 @@ export function lueckeText(sort, g, nw) {
 
 /**
  * Einordnen auf dem Handy: Lücke antippen (Karte erscheint dort), dann „Einordnen“.
- * o: { reihe, neu, nw, zeigen, onAbgabe(gap), knopf }
+ * o: { reihe, neu, nw, zeigen, geordnet, onAbgabe(gap), knopf,
+ *      zweifel (Knopf „Ich zweifle!“ zeigen), onZweifel() }
  */
 export function reiheEingabe(el, o) {
-  let gewaehlt = -1, aktiv = true;
+  let gewaehlt = -1, aktiv = true, scharf = 0;
   const zeichne = () => {
     el.innerHTML = `<div class="einordnen">
       <div class="neukarte">${o.rueck || ''}<span class="eyebrow">Wohin gehört …</span>${lmGross(o.neu, {})}</div>
       <div class="reihebox" id="reiheBox">${reiheHtml(o.reihe, o.nw, {
-        aktiv, zeigen: o.zeigen, gewaehlt,
+        aktiv, zeigen: o.zeigen, gewaehlt, geordnet: o.geordnet,
         lueckeInhalt: g => g === gewaehlt ? lmKarte(o.neu, { cls: 'geist' }) : '',
       })}</div>
-      <div class="abgabe"><button class="big-btn" id="btnEin" ${gewaehlt < 0 || !aktiv ? 'disabled' : ''}>${gewaehlt < 0 ? 'Tippe auf eine Lücke' : esc(o.knopf || 'Hier einordnen ✓')}</button></div>
+      <div class="abgabe ${o.zweifel ? 'mitzweifel' : ''}"><button class="big-btn" id="btnEin" ${gewaehlt < 0 || !aktiv ? 'disabled' : ''}>${gewaehlt < 0 ? 'Tippe auf eine Lücke' : esc(o.knopf || 'Hier einordnen ✓')}</button>${o.zweifel ? `<button class="ghost-btn zweifel" id="btnZweifel" ${aktiv ? '' : 'disabled'}>Ich zweifle!</button>` : ''}</div>
     </div>`;
+    const bz = el.querySelector('#btnZweifel');
+    if (bz) bz.onclick = () => {
+      if (!aktiv) return;
+      // Zweimal tippen, damit niemand aus Versehen zweifelt
+      if (Date.now() - scharf > 4000) { scharf = Date.now(); bz.textContent = 'Sicher? Nochmal tippen'; bz.classList.add('scharf'); return; }
+      aktiv = false; bz.disabled = true; el.querySelector('#btnEin').disabled = true; o.onZweifel();
+    };
     el.querySelectorAll('.luecke').forEach(b => {
       b.onclick = () => {
         if (!aktiv) return;
@@ -103,7 +113,7 @@ export function reiheEingabe(el, o) {
     btn.onclick = () => { if (gewaehlt < 0 || !aktiv) return; aktiv = false; btn.disabled = true; o.onAbgabe(gewaehlt); };
   };
   zeichne();
-  return { sperren() { aktiv = false; const b = el.querySelector('#btnEin'); if (b) b.disabled = true; el.querySelectorAll('.luecke').forEach(x => { x.disabled = true; }); }, get gewaehlt() { return gewaehlt; } };
+  return { sperren() { aktiv = false; el.querySelectorAll('#btnEin, #btnZweifel, .luecke').forEach(x => { x.disabled = true; }); }, get gewaehlt() { return gewaehlt; } };
 }
 
 // Auflösung der Reihe: alle Werte sichtbar, neue Karte an der richtigen Stelle, Tipps als Namensschilder

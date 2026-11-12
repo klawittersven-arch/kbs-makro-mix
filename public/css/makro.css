@@ -437,3 +437,77 @@ body.beamer .chip{font-size:.72em}
 .bedarfbuehne .bk.gross{font-size:1.4em}
 .bedarfbuehne > .hint{font-size:1.1em}
 .assumme b small{font-family:var(--f-body);font-weight:800;font-size:.6em;margin-left:.2em;color:var(--muted)}
+
+/* =====================================================================
+   Klassenrunde
+   ===================================================================== */
+/* Einstellungen zweispaltig */
+.optgrid.zwei{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.65em 1.4em;align-items:start}
+.opt{display:grid;grid-template-columns:7.6em minmax(0,1fr);gap:.6em;align-items:start;min-width:0}
+.opt.breit{grid-column:1/-1}
+.opt .lbl{padding-top:.6em}
+.opt .desc{grid-column:auto;margin-top:.3em;color:var(--muted);font-size:.82em;line-height:1.35}
+.big-btn.gruen{background:var(--mint);border-color:#d9fff2;box-shadow:0 .2em 0 #1f8a6c;color:#06302a}
+/* Beamer */
+.klasse .fside{gap:.8em}
+.kzaehler{flex-direction:row;align-items:baseline;gap:.6em}
+.kzaehler b{font-family:var(--f-display);font-weight:400;font-size:3em;line-height:1;color:var(--sun)}
+.kzaehler span{color:var(--muted);font-weight:600}
+.krang{flex:1;min-height:0;overflow:auto;gap:.4em}
+.krang h3{margin:0;color:var(--sun);font-size:1em;letter-spacing:.08em;text-transform:uppercase}
+.krang ol{list-style:none;margin:0;padding:0;display:grid;gap:.3em}
+.krang li{display:grid;grid-template-columns:2em minmax(0,1fr) auto;gap:.4em;align-items:center;padding:.15em .4em;border-radius:.4em}
+.krang li .p{color:var(--muted);font-weight:700;text-align:right}
+.krang li .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+.krang li b{font-family:var(--f-display);font-weight:400;color:var(--text)}
+.krang li.top{background:#2a2f6e}
+.krang li.top b{color:var(--sun)}
+.krang li.mehr{list-style:none;color:var(--muted);font-size:.9em}
+.aufltitel.neutral{color:var(--ice)}
+.aufltitel.good{color:var(--ok)}
+.luecke.stimmen,.luecke.mehrheit{min-height:2em}
+.stimmzahl{position:relative;z-index:1;display:inline-flex;align-items:center;gap:.4em;min-width:4em}
+.stimmzahl i{display:block;height:.7em;min-width:.4em;border-radius:.35em;background:var(--ice)}
+.stimmzahl b{font-weight:800;color:var(--ice)}
+.luecke.mehrheit .stimmzahl i{background:var(--sun)}
+.luecke.mehrheit .stimmzahl b{color:#7a4d00}
+.lm .schilder .stimmzahl{min-width:6em}
+.lm.falschrum{border-color:var(--bad);border-left-color:var(--bad);box-shadow:0 0 0 3px rgba(255,77,106,.45)}
+.kstat{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:1em;align-items:start}
+.kstat h3{margin:0;color:var(--sun)}
+.kstat h3 small{color:var(--muted);font-weight:600;font-size:.75em;margin-left:.4em}
+.verteilung,.haeufig{display:grid;gap:.45em}
+.vz{display:grid;grid-template-columns:minmax(0,15em) minmax(0,1fr) 2.2em;align-items:center;gap:.6em;font-weight:600}
+.vz i,.hz i{display:block;height:.9em;border-radius:.45em;background:var(--deep);border:1px solid var(--line);overflow:hidden}
+.vz i b,.hz i b{display:block;height:100%;background:var(--ok)}
+.vz.leer i b{background:var(--muted)}
+.vz.bad i b{background:var(--bad)}
+.vz em,.hz em{font-style:normal;font-weight:800;text-align:right;font-variant-numeric:tabular-nums}
+.haeufig{gap:.3em}
+.hz{display:grid;grid-template-columns:1.8em minmax(0,13em) minmax(0,1fr) 3em;align-items:center;gap:.5em}
+.hz .lexbild{width:1.8em;height:1.8em}
+.hz .lexbild svg{width:1.55em;height:1.55em}
+.hz .hzn{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hz .hzn small{color:var(--muted);font-weight:600}
+.hz.best .hzn{color:var(--ok)}
+.hz.best i b{background:var(--sun)}
+.kliste{list-style:none;margin:0;padding:0;display:grid;gap:.3em;overflow:auto}
+.kliste li{display:grid;grid-template-columns:2.4em minmax(0,1fr) auto 3em;gap:.5em;align-items:center;background:var(--panel);border-radius:.5em;padding:.3em .7em}
+.kliste .p{font-family:var(--f-display);color:var(--muted);text-align:right}
+.kliste .nm{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kliste small{color:var(--muted);font-weight:600}
+.kliste b{font-family:var(--f-display);font-weight:400;color:var(--sun);text-align:right}
+/* Handy */
+.abgabe.mitzweifel{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:8px}
+.abgabe.mitzweifel .big-btn{font-size:1.05em;padding:.7em .5em}
+.ghost-btn.zweifel{border-color:var(--bad);color:#ffc2cf;font-weight:800}
+.ghost-btn.zweifel.scharf{background:var(--bad);color:#fff}
+.rueck.info{background:#14183d;color:var(--muted);border-color:var(--line);font-weight:500;font-size:14px}
+.rueck.info b{color:var(--text)}
+@media (max-width:900px){
+  .optgrid.zwei,.kstat{grid-template-columns:1fr}
+}
+/* Viele Anmeldungen: kompaktere Namensschilder, damit 30 Namen ohne Scrollen passen */
+.names.viele{gap:.3em}
+.names.viele .name{font-size:.88em;padding:.15em .25em .15em .6em;gap:.25em}
+.names.viele .name .x{width:1.4em;height:1.4em}

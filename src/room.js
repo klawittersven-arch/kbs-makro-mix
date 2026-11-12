@@ -6,7 +6,8 @@ import {
   SPIELARTEN, NAEHRWERTE, NW_WAHL, STUFEN, ZEITEN, QUALI_MINUTEN, FINAL_GROESSEN, SIEG_KARTEN,
   REIHE_LAENGE, MAX_SERIE, VORLAUF_START, VORLAUF_WEITER, PAUSE, GNADE, SCHLUSS_GNADE,
   zeitLimit, rundenPlan, kette, richtigeLuecke, bedarfFinalRunde, sauberePick, bewerte, besteKombi, zielZehntel,
-  vergleichQuali, zufallsSeed, mischSeed,
+  vergleichQuali, zufallsSeed, mischSeed, nwFuer,
+  KLASSE_RUNDEN, PUNKTE, KLASSE_PAUSE, reiheFehler, passtLuecke, mehrheit, bedarfPunkte,
 } from '../public/js/regeln.js';
 
 export const MAX_PLAYERS = 60;
@@ -38,18 +39,20 @@ export function cleanCfg(c, old) {
     qmin: pick(Number(c.qmin), QUALI_MINUTEN, pick(Number(old.qmin), QUALI_MINUTEN, 3)),
     finalN: pick(Number(c.finalN), FINAL_GROESSEN, pick(Number(old.finalN), FINAL_GROESSEN, 4)),
     sieg: pick(Number(c.sieg), SIEG_KARTEN, pick(Number(old.sieg), SIEG_KARTEN, 3)),
+    runden: pick(Number(c.runden), KLASSE_RUNDEN, pick(Number(old.runden), KLASSE_RUNDEN, 15)),
   };
 }
 
 export function freshState(code) {
   return {
     v: 1, code, teacherKey: null, created: 0, updated: 0,
-    phase: 'lobby', // lobby | quali | final-setup | final | podium
+    phase: 'lobby', // lobby | quali | final-setup | final | podium | klasse
     cfg: cleanCfg({}),
     players: {},
     order: [], // pids in Anmelde-Reihenfolge
     quali: null,
     final: null,
+    klasse: null, // Klassenrunde: alle gleichzeitig
     nr: 0, // zählt Qualifying- und Finalrunden, damit alte Nachrichten nicht zählen
   };
 }
@@ -94,6 +97,8 @@ export function plaetzeBedarf(st) {
   const order = st.map((x, i) => i).sort((a, b) => ((st[b].karten || 0) - (st[a].karten || 0)) || ((st[b].acc || 0) - (st[a].acc || 0)) || (a - b));
   order.forEach((i, j) => { st[i].place = j + 1; });
 }
+
+const neuePunkte = () => ({ p: 0, richtig: 0, zweifelOk: 0, zweifelFalsch: 0, ms: 0, runden: 0 });
 
 export class RoomLogic {
   /**
@@ -141,7 +146,12 @@ export class RoomLogic {
     if (m.role !== 'player') return;
     await this.state();
     this.closing = conn.ws;
-    try { this.pushTeachers(); } finally { this.closing = null; }
+    try {
+      // Klassenrunde: Haben jetzt alle verbundenen Handys abgegeben? Dann nicht länger warten
+      const s = this.s, k = s && s.klasse;
+      if (s && s.phase === 'klasse' && k && k.state === 'run' && this.klasseOffen(k) && Object.keys(k.antworten).length && this.alleGeantwortet(s)) await this.klasseAuswerten(s);
+      else this.pushTeachers();
+    } finally { this.closing = null; }
   }
 
   // ---------- Nachrichten
@@ -273,8 +283,55 @@ export class RoomLogic {
         s.phase = 'final-setup';
         await this.persist(); this.pushAll(); return;
       }
+      // ---------- Klassenrunde
+      case 'klasse-start': {
+        if (s.phase !== 'lobby' && !(s.phase === 'klasse' && s.klasse && s.klasse.state === 'ende')) return;
+        if (!s.order.length) return conn.send({ t: 'error', why: 'no-players' });
+        s.cfg = cleanCfg(msg.cfg, s.cfg);
+        this.klasseStart(s, now);
+        await this.persist(); this.pushAll(); return;
+      }
+      case 'k-tick': case 'k-stopp': {
+        const k = s.klasse;
+        if (s.phase !== 'klasse' || !k || k.state !== 'run' || msg.nr !== k.nr || msg.r !== k.runde || !this.klasseOffen(k)) return;
+        if (msg.t === 'k-tick' && (!k.deadline || now < k.deadline + GNADE)) return; // ohne Zeitlimit: nie
+        return this.klasseAuswerten(s);
+      }
+      case 'k-halt': case 'k-weiter': {
+        const k = s.klasse;
+        if (s.phase !== 'klasse' || !k || k.state !== 'run' || msg.nr !== k.nr) return;
+        if (msg.t === 'k-halt') {
+          if (k.startAt && now < k.startAt) { k.paused = true; k.startAt = 0; k.deadline = 0; }
+          else k.haltNext = true;
+        } else {
+          k.haltNext = false;
+          if (k.paused) { k.paused = false; Object.assign(k, rundenPlan(now + VORLAUF_WEITER, k.art, k.art === 'reihe' ? k.reihe.length : 0, k.zeit)); }
+        }
+        await this.persist(); this.pushAll(); return;
+      }
+      case 'k-ende': {
+        // Lehrkraft beendet die Klassenrunde vorzeitig
+        const k = s.klasse;
+        if (s.phase !== 'klasse' || !k || k.state !== 'run') return;
+        if (this.klasseOffen(k) && Object.keys(k.antworten).length) { k.runden = k.runde; return this.klasseAuswerten(s); }
+        if (k.art === 'reihe' && k.last && !k.last.aufgedeckt) this.reiheAufdecken(k, 'schluss', k.reihe.slice());
+        k.state = 'ende'; k.startAt = 0; k.deadline = 0; k.paused = false; k.antworten = {};
+        await this.persist(); this.pushAll(); return;
+      }
+      case 'klasse-final': {
+        // Weiter zum Finale: Die Punkte der Klassenrunde sind die Rangliste
+        const k = s.klasse;
+        if (s.phase !== 'klasse' || !k || k.state !== 'ende') return;
+        for (const pid of s.order) {
+          const pk = k.punkte[pid];
+          s.players[pid].q = pk ? { lvl: pk.p, acc: pk.richtig, ms: pk.ms, v: 0, fehler: 0, done: true, klasse: true } : null;
+        }
+        s.phase = 'final-setup';
+        s.final = { p: this.ranking().slice(0, s.cfg.finalN), state: 'setup' };
+        await this.persist(); this.pushAll(); return;
+      }
       case 'to-lobby': {
-        s.phase = 'lobby'; s.quali = null; s.final = null;
+        s.phase = 'lobby'; s.quali = null; s.final = null; s.klasse = null;
         for (const pid of s.order) s.players[pid].q = null;
         await this.persist(); this.pushAll(); return;
       }
@@ -346,6 +403,43 @@ export class RoomLogic {
         this.pushTeachers();
         conn.send({ t: 'q-ok', best: p.q.lvl });
         return;
+      }
+      case 'k-reihe': case 'k-bedarf': {
+        // Klassenrunde: eine Abgabe pro Runde (einordnen, zweifeln oder Lebensmittel auswählen)
+        const k = s.klasse;
+        if (s.phase !== 'klasse' || !k || k.state !== 'run' || msg.nr !== k.nr || msg.r !== k.runde) return;
+        if (k.paused || !k.startAt || now < k.startAt - 1000) return;
+        if (k.deadline && now > k.deadline + GNADE) return;
+        if (!s.players[pid] || k.antworten[pid]) return;
+        const limit = zeitLimit(k.art, k.art === 'reihe' ? k.reihe.length : 0, k.zeit);
+        const dauer = limit ? Math.min(ms(msg.ms), limit) : ms(msg.ms);
+        if (msg.t === 'k-reihe' && k.art === 'reihe') {
+          if (msg.zweifel === true) {
+            if (k.reihe.length < 2) return; // eine einzelne Karte kann nicht falsch liegen
+            k.antworten[pid] = { zweifel: true, ms: dauer };
+          } else {
+            const gap = int(msg.gap, 0, k.reihe.length, -1);
+            if (gap < 0) return;
+            k.antworten[pid] = { gap, ms: dauer };
+          }
+        } else if (msg.t === 'k-bedarf' && k.art === 'bedarf') {
+          const pick = sauberePick(msg.pick);
+          if (!pick || !pick.length) return;
+          k.antworten[pid] = { pick, ms: dauer };
+        } else return;
+        if (!k.punkte[pid]) k.punkte[pid] = neuePunkte();
+        if (this.alleGeantwortet(s)) return this.klasseAuswerten(s);
+        await this.persist();
+        conn.send(this.youMsg(pid));
+        this.klasseFortschritt(s);
+        return;
+      }
+      case 'k-tick': {
+        // Auch Handys melden das Ende der Zeit (falls der Beamer-Laptop schläft)
+        const k = s.klasse;
+        if (s.phase !== 'klasse' || !k || k.state !== 'run' || msg.nr !== k.nr || msg.r !== k.runde || !this.klasseOffen(k)) return;
+        if (!k.deadline || now < k.deadline + GNADE) return;
+        return this.klasseAuswerten(s);
       }
       case 'f-reihe': case 'f-bedarf': {
         const f = s.final;
@@ -422,6 +516,161 @@ export class RoomLogic {
     await this.persist(); this.pushAll();
   }
 
+  // ---------- Klassenrunde
+  klasseStart(s, now) {
+    const c = s.cfg, seed = zufallsSeed();
+    s.nr++;
+    const k = {
+      nr: s.nr, art: c.art, nwWahl: c.nw, zeit: c.zeit, runden: c.runden, seed, runde: 1, gespielt: 0, state: 'run',
+      last: null, paused: false, haltNext: false, first: true,
+      antworten: {}, // Abgaben der laufenden Runde
+      punkte: {},    // Punktestand je Person
+      offen: {},     // Reihe: vorgemerkte Punkte fürs Einordnen (gutgeschrieben beim Aufdecken)
+      zuletzt: {},   // eigenes Ergebnis der letzten Runde (für die Handys)
+    };
+    for (const pid of s.order) k.punkte[pid] = neuePunkte();
+    if (k.art === 'reihe') { k.reiheNr = 0; this.neueReihe(k); }
+    else Object.assign(k, bedarfFinalRunde(mischSeed(seed, 21), 1, k.nwWahl));
+    Object.assign(k, rundenPlan(now + VORLAUF_START, k.art, k.art === 'reihe' ? k.reihe.length : 0, k.zeit));
+    s.klasse = k; s.phase = 'klasse'; s.quali = null; s.final = null;
+    for (const pid of s.order) s.players[pid].q = null;
+  }
+  neueReihe(k) {
+    k.reiheNr++;
+    k.nw = nwFuer(k.nwWahl, k.seed, k.reiheNr);
+    k.kette = kette(mischSeed(k.seed, k.reiheNr, 31), k.nw, REIHE_LAENGE + 1);
+    k.reihe = [k.kette[0]]; // gelegte Reihenfolge von unten nach oben, kann Fehler enthalten
+    k.kPos = 1;             // nächste Karte aus der Kette
+  }
+  klasseOffen(k) { return !k.paused && !!k.startAt && this.io.now() >= k.startAt; }
+  // Haben alle verbundenen Personen abgegeben? (Wer nicht verbunden ist, hält das Spiel nicht auf)
+  alleGeantwortet(s) {
+    const k = s.klasse, on = this.online();
+    const da = s.order.filter(pid => on.has(pid));
+    return da.length > 0 && da.every(pid => k.antworten[pid]);
+  }
+  // Kurze Fortschrittsmeldung an den Beamer (statt jedes Mal den ganzen Raum zu schicken)
+  klasseFortschritt(s) {
+    const k = s.klasse, on = this.online();
+    const out = JSON.stringify({ t: 'kp', nr: k.nr, r: k.runde, n: Object.keys(k.antworten).length, von: s.order.filter(pid => on.has(pid)).length });
+    for (const c of this.io.conns()) if ((c.meta || {}).role === 'teacher') c.sendRaw(out);
+  }
+  async klasseAuswerten(s) {
+    const k = s.klasse, now = this.io.now();
+    k.zuletzt = {};
+    for (const [pid, a] of Object.entries(k.antworten)) {
+      const pk = k.punkte[pid] || (k.punkte[pid] = neuePunkte());
+      pk.ms += a.ms || 0; pk.runden++;
+    }
+    const pause = k.art === 'reihe' ? this.klasseReihe(s) : this.klasseBedarf(s);
+    k.antworten = {};
+    k.gespielt++;
+    if (k.runde >= k.runden) {
+      if (k.art === 'reihe' && !k.last.aufgedeckt) this.reiheAufdecken(k, 'schluss', k.reihe.slice());
+      k.state = 'ende'; k.endAt = now; k.startAt = 0; k.deadline = 0;
+    } else {
+      k.runde++; k.first = false;
+      if (k.art === 'bedarf') Object.assign(k, bedarfFinalRunde(mischSeed(k.seed, 21), k.runde, k.nwWahl));
+      if (k.haltNext) { k.paused = true; k.haltNext = false; k.startAt = 0; k.deadline = 0; }
+      else Object.assign(k, rundenPlan(now + pause, k.art, k.art === 'reihe' ? k.reihe.length : 0, k.zeit));
+    }
+    await this.persist(); this.pushAll();
+  }
+  // Reihe: Die neue Karte kommt dorthin, wo die Mehrheit sie hingelegt hat (auch wenn das falsch ist).
+  // Zweifelt jemand, wird die Reihe aufgedeckt und beginnt danach neu (wie am Tisch).
+  klasseReihe(s) {
+    const k = s.klasse, nw = k.nw, neu = k.kette[k.kPos], vor = k.reihe.slice();
+    const ant = Object.entries(k.antworten);
+    const zweifler = ant.filter(([, a]) => a.zweifel).map(([pid]) => pid);
+    const leger = ant.filter(([, a]) => a.gap >= 0);
+    for (const [pid, a] of leger) {
+      const o = k.offen[pid] || (k.offen[pid] = { p: 0, richtig: 0 });
+      if (passtLuecke(vor, neu, nw, a.gap)) { o.p += PUNKTE.richtig; o.richtig++; }
+      k.zuletzt[pid] = { gap: a.gap };
+    }
+    const m = mehrheit(leger.map(([, a]) => a.gap), vor.length);
+    const L = k.last = {
+      runde: k.runde, art: 'reihe', nw, neu, vor, stimmen: m.stimmen, gap: m.gap, anzahl: ant.length, gelegt: leger.length,
+      zweifler: zweifler.map(pid => s.players[pid] ? s.players[pid].name : '?'), aufgedeckt: '',
+    };
+    if (zweifler.length) {
+      const fehler = reiheFehler(vor, nw).length > 0;
+      L.zweifelRecht = fehler;
+      // Erst die Punkte fürs Einordnen gutschreiben, dann den Zweifel werten. Die neue Karte kommt nicht mehr in die Reihe.
+      this.reiheAufdecken(k, 'zweifel', vor);
+      for (const pid of zweifler) {
+        const pk = k.punkte[pid], vorher = pk.p;
+        if (fehler) pk.zweifelOk++; else pk.zweifelFalsch++;
+        pk.p = Math.max(0, pk.p + (fehler ? PUNKTE.zweifelRichtig : PUNKTE.zweifelFalsch));
+        Object.assign(k.zuletzt[pid] || (k.zuletzt[pid] = {}), { zweifel: true, plus: pk.p - vorher });
+      }
+      return KLASSE_PAUSE.aufgedeckt;
+    }
+    if (m.gap >= 0) k.reihe.splice(m.gap, 0, neu);
+    k.kPos++;
+    if (k.kPos >= k.kette.length) { this.reiheAufdecken(k, 'voll', k.reihe.slice()); return KLASSE_PAUSE.aufgedeckt; }
+    return KLASSE_PAUSE.reihe;
+  }
+  // Reihe aufdecken: Fehler zeigen, vorgemerkte Punkte gutschreiben, neue Reihe beginnen
+  reiheAufdecken(k, grund, reihe) {
+    const L = k.last;
+    L.aufgedeckt = grund; L.offen = reihe; L.fehler = reiheFehler(reihe, L.nw);
+    for (const [pid, o] of Object.entries(k.offen)) {
+      const pk = k.punkte[pid] || (k.punkte[pid] = neuePunkte());
+      pk.p += o.p; pk.richtig += o.richtig;
+      (k.zuletzt[pid] || (k.zuletzt[pid] = {})).reihePlus = o.p;
+    }
+    k.offen = {};
+    this.neueReihe(k);
+  }
+  // Bedarf: alle dieselbe Bedarfskarte und dieselben 10 Lebensmittel, Punkte nach Nähe zum Zielwert
+  klasseBedarf(s) {
+    const k = s.klasse, b = BEDARFSKARTEN[k.b], zielZ = zielZehntel(b);
+    const beste = besteKombi(k.hand, b.wert, zielZ);
+    const verteilung = { beste: 0, gut: 0, ok: 0, wenig: 0, drueber: 0 };
+    const haeufig = k.hand.map(() => 0);
+    for (const [pid, a] of Object.entries(k.antworten)) {
+      const e = bewerte(k.hand, a.pick, k.b);
+      const plus = bedarfPunkte(e.sum, zielZ, beste.sum);
+      const pk = k.punkte[pid];
+      pk.p += plus; if (plus > 0) pk.richtig++;
+      verteilung[e.drueber ? 'drueber' : plus === PUNKTE.beste ? 'beste' : plus === PUNKTE.gut ? 'gut' : plus === PUNKTE.ok ? 'ok' : 'wenig']++;
+      for (const i of a.pick) haeufig[i]++;
+      k.zuletzt[pid] = { pick: a.pick, sum: e.sum, drueber: e.drueber, plus };
+    }
+    k.last = { runde: k.runde, art: 'bedarf', b: k.b, hand: k.hand, beste, verteilung, haeufig, anzahl: Object.keys(k.antworten).length };
+    return KLASSE_PAUSE.bedarf;
+  }
+  klasseRanking() {
+    const s = this.s, k = s.klasse;
+    const list = s.order.filter(pid => s.players[pid]);
+    const P = pid => k.punkte[pid] || neuePunkte();
+    list.sort((a, b) => (P(b).p - P(a).p) || (P(b).richtig - P(a).richtig) || (P(a).ms - P(b).ms) || (s.players[a].at - s.players[b].at));
+    return list;
+  }
+  klasseView(full, pid, rk) {
+    const s = this.s, k = s.klasse;
+    if (!k) return null;
+    const v = {
+      nr: k.nr, art: k.art, state: k.state, runde: k.runde, runden: k.runden, gespielt: k.gespielt,
+      startAt: k.startAt, deadline: k.deadline, paused: k.paused, haltNext: k.haltNext, first: k.first, zeit: k.zeit, nwWahl: k.nwWahl,
+      last: k.last, anzahl: Object.keys(k.antworten).length,
+    };
+    if (k.art === 'reihe') { v.nw = k.nw; v.reihe = k.reihe; v.neu = k.state === 'run' ? k.kette[k.kPos] : null; v.reiheNr = k.reiheNr; v.kPos = k.kPos; v.kLen = k.kette.length - 1; }
+    else { v.b = k.b; v.hand = k.hand; }
+    rk = rk || this.klasseRanking();
+    const eintrag = id => { const pk = k.punkte[id] || neuePunkte(); return { pid: id, name: s.players[id].name, p: pk.p, richtig: pk.richtig, zweifelOk: pk.zweifelOk, zweifelFalsch: pk.zweifelFalsch }; };
+    if (full) { v.rangliste = rk.map(eintrag); v.beantwortet = Object.keys(k.antworten); }
+    else {
+      v.top = rk.slice(0, 3).map(eintrag);
+      const pk = k.punkte[pid] || neuePunkte();
+      // Gleiche Punktzahl = gleicher Platz
+      const platz = 1 + rk.filter(id => (k.punkte[id] || neuePunkte()).p > pk.p).length;
+      v.me = { p: pk.p, platz, von: rk.length, abgegeben: k.antworten[pid] || null, zuletzt: k.zuletzt[pid] || null };
+    }
+    return v;
+  }
+
   // ---------- Sicht auf den Raum
   online() {
     const set = new Set();
@@ -461,9 +710,11 @@ export class RoomLogic {
     });
     const f = this.finalView(s.final, true);
     if (f) f.online = f.p.map(pid => on.has(pid));
-    return { t: 'room', code: s.code, phase: s.phase, cfg: s.cfg, quali: s.quali, players, now: this.io.now(), final: f };
+    const klasse = s.phase === 'klasse' ? this.klasseView(true) : null;
+    if (klasse) klasse.online = players.filter(p => p.online).length;
+    return { t: 'room', code: s.code, phase: s.phase, cfg: s.cfg, quali: s.quali, players, now: this.io.now(), final: f, klasse };
   }
-  youMsg(pid) {
+  youMsg(pid, rk) {
     const s = this.s, p = s.players[pid] || null, f = s.final;
     const rank = this.ranking(), r = rank.indexOf(pid);
     let final = null;
@@ -481,6 +732,7 @@ export class RoomLogic {
       me: p ? { name: p.name, q: p.q, rank: r + 1, of: rank.length } : null,
       quali: Q ? { nr: Q.nr, seed: Q.seed, art: Q.art, nw: Q.nw, stufe: Q.stufe, startAt: Q.startAt, endAt: Q.endAt, open: Q.open } : null,
       final,
+      klasse: s.phase === 'klasse' && p ? this.klasseView(false, pid, rk) : null,
     };
   }
   pushTeachers() {
@@ -490,7 +742,8 @@ export class RoomLogic {
   }
   pushPlayers() {
     if (!this.s) return;
-    for (const c of this.io.conns()) { const m = c.meta || {}; if (m.role === 'player') c.send(this.youMsg(m.pid)); }
+    const rk = this.s.phase === 'klasse' && this.s.klasse ? this.klasseRanking() : null; // einmal sortieren, nicht für jedes Handy
+    for (const c of this.io.conns()) { const m = c.meta || {}; if (m.role === 'player') c.send(this.youMsg(m.pid, rk)); }
   }
   pushAll() { this.pushTeachers(); this.pushPlayers(); }
 }

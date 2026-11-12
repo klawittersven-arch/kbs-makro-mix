@@ -5,7 +5,12 @@ Ein Klassenspiel zu Nährwerten und Makronährstoffen, nach dem Kartenspiel „M
 - **Reihe:** Lebensmittel nach Kalorien, Fett, Kohlenhydraten oder Eiweiß ordnen. Wo gehört die neue Karte in die Reihe?
 - **Bedarf:** Eine Bedarfskarte nennt eine Person und einen Zielwert. Aus 10 Lebensmitteln bis zu 5 auswählen und dem Zielwert so nah wie möglich kommen, ohne ihn zu überschreiten.
 
-Erst spielen alle allein auf dem Handy (Qualifying, mit Live-Rangliste am Beamer), dann spielen die Besten das Finale, die Auflösung kommt am Beamer.
+Zwei Arten zu spielen, beide mit der ganzen Klasse (bis 30 SuS und mehr) gleichzeitig:
+
+- **Klassenrunde:** Alle spielen Runde für Runde gleichzeitig dieselbe Karte bzw. Bedarfskarte. Die Auflösung kommt nach jeder Runde am Beamer, mit Punkte-Rangliste.
+- **Qualifying + Finale:** Erst spielen alle allein auf dem Handy (mit Live-Rangliste am Beamer), dann spielen die Besten das Finale.
+
+Nach einer Klassenrunde kann es auch direkt mit dem Finale weitergehen.
 
 | Seite | Adresse | Für wen |
 |---|---|---|
@@ -47,15 +52,37 @@ Genauso wie bei KBS Simon says, KBS-Kart, Tetris und der Spielewahl:
    - **Nährwert:** Kalorien, Fett, Kohlenhydrate, Eiweiß oder Gemischt. Bei *Reihe* wird danach geordnet (Gemischt: jeder Versuch mit einem anderen Nährwert, im Finale wird einer ausgelost). Bei *Bedarf* kommen nur Bedarfskarten mit diesem Nährwert vor (Gemischt: alle 32).
    - **Schwierigkeit** (nur Reihe): *Einfach*: Die Werte der Karten in der Reihe sind sichtbar, geschätzt wird nur die neue Karte. *Schwer*: Alle Werte bleiben verdeckt wie am Tisch, aufgedeckt wird erst bei der Auflösung.
    - **Qualifying:** dauert 2, 3 oder 5 Minuten (voreingestellt: 3 Minuten).
+   - **Klassenrunde:** 10, 15 oder 20 Runden (voreingestellt: 15).
    - **Finale:** mit 2, 3 oder 4 Personen.
    - **Sieg mit** (nur Bedarf): 3 oder 5 Bedarfskarten.
-   - **Zeitlimit** (fürs Finale): *Mit Zeitlimit* (sehr großzügig, siehe unten) oder *Ohne Zeitlimit*.
-4. **Qualifying starten** (Enter). Nach einem Countdown spielen alle **gleichzeitig auf dem eigenen Handy**, für alle gleich lang. Im ersten Versuch bekommen alle dieselben Karten, im zweiten Versuch wieder alle dieselben usw. Am Beamer laufen die Restzeit und eine Live-Rangliste.
+   - **Zeitlimit** (für Finale und Klassenrunde): *Mit Zeitlimit* (sehr großzügig, siehe unten) oder *Ohne Zeitlimit*.
+4. Entweder **Klassenrunde starten** (Taste K, siehe [Klassenrunde](#klassenrunde)) oder **Qualifying starten** (Enter). Nach einem Countdown spielen alle **gleichzeitig auf dem eigenen Handy**, für alle gleich lang. Im ersten Versuch bekommen alle dieselben Karten, im zweiten Versuch wieder alle dieselben usw. Am Beamer laufen die Restzeit und eine Live-Rangliste.
 5. Nach einem Fehler zeigt das Handy die **Auflösung** mit allen Werten (bei *Bedarf* auch die beste mögliche Kombination). Mit **Neuer Versuch** geht es weiter. Es zählt der **beste Versuch** (siehe Regeln). Im Qualifying gibt es kein Zeitlimit pro Karte. Nachzügler können über den kleinen QR-Code noch einsteigen, haben dann aber nur die restliche Zeit.
 6. Ist die Zeit um, zeigt der Beamer den **Endstand**, die Handys zeigen das eigene Ergebnis und den Platz. **Weiter zum Finale** (Enter). Mit „Qualifying beenden“ (zweimal Enter) lässt es sich auch vorzeitig beenden, dann zählt der beste Versuch bis dahin.
 7. **Finale einrichten:** Die Besten sind vorausgewählt, über die Auswahllisten lässt sich jemand austauschen. Spielart, Nährwert, Schwierigkeit und Zeitlimit kannst du fürs Finale noch ändern. **Finale starten** (Enter), sobald alle Finalisten-Handys verbunden sind.
 8. **Finale:** Gespielt wird auf dem Handy, am Beamer sieht man die Karte bzw. Bedarfskarte, wer schon abgegeben hat, und danach die **Auflösung mit Ton** (siehe Regeln). Nach jeder Auflösung startet die nächste Runde automatisch (Reihe nach 9, Bedarf nach 15 Sekunden). Mit der **Leertaste** hältst du an, um die Auflösung zu besprechen, und mit der Leertaste geht es weiter.
 9. **Siegerehrung** mit Pokal und Platzierungen. Bei *Reihe* steht daneben die ganze Reihe mit allen Werten, bei *Bedarf* die gesammelten Bedarfskarten. Danach **Revanche** (Enter, gleiche Finalisten, neue Karten), **Andere Finalisten** oder **Neues Spiel** (Esc, zurück zur Anmeldung, alle bleiben angemeldet).
+
+### Klassenrunde
+
+Die ganze Klasse spielt gleichzeitig, Runde für Runde. Am Beamer stehen die Karte, wie viele schon abgegeben haben, und die Punkte-Rangliste (die besten 10). Nach jeder Runde kommt die Auflösung am Beamer, danach startet die nächste Runde automatisch. Mit der **Leertaste** hältst du an, um zu besprechen. **Runde beenden** wartet nicht länger auf Nachzügler, **Klassenrunde beenden** springt zum Endstand. Am Ende: **Weiter zum Finale** (Enter, die Besten nach Punkten sind vorausgewählt), **Noch eine Klassenrunde** (K) oder **Neues Spiel** (Esc).
+
+**Reihe als Klassenrunde** (nah am Kartenspiel, mit Zweifeln):
+- Jede Runde kommt eine neue Karte. Alle entscheiden auf dem Handy: **einordnen** oder **„Ich zweifle!“** (zweimal tippen, damit niemand aus Versehen zweifelt).
+- Die Karte kommt dorthin, wo die **Mehrheit** sie hingelegt hat, auch wenn das falsch ist (bei Gleichstand die untere Lücke). Die Werte bleiben verdeckt. Am Beamer sieht man, wie viele welche Lücke gewählt haben.
+- **Zweifelt jemand, wird die Reihe aufgedeckt.** Steckt ein Fehler drin, bekommen alle Zweifelnden **+3 Punkte**. War die Reihe richtig, verlieren sie **2 Punkte** (der Punktestand fällt nie unter 0). Wer gezweifelt hat, steht am Beamer, das bremst Dauerzweifler. Danach beginnt eine neue Reihe, wie am Tisch.
+- Jede passend eingeordnete Karte bringt **+1 Punkt**. Gutgeschrieben wird erst beim Aufdecken. So verrät der Punktestand nicht, ob in der Reihe ein Fehler steckt.
+- Ist eine Reihe voll (12 Karten), wird sie automatisch aufgedeckt. Nach der letzten Runde wird die laufende Reihe aufgedeckt.
+- In der Klassenrunde sind die Werte immer verdeckt, die Einstellung *Schwierigkeit* gilt hier nicht.
+
+**Bedarf als Klassenrunde:**
+- Alle bekommen dieselbe Bedarfskarte und dieselben 10 Lebensmittel. So lässt sich die Lösung am Beamer gemeinsam besprechen.
+- Punkte: **3** für die beste mögliche Kombination, **2** für mindestens 90 % des Zielwerts, **1** für mindestens 80 %, **0** bei zu wenig oder zu viel.
+- Am Beamer: beste Kombination, wie viele wie viele Punkte bekommen haben und welche Lebensmittel wie oft gewählt wurden.
+
+**Rangliste:** mehr Punkte vorn. Bei Gleichstand teilen sich die Personen den Platz. Für die Reihenfolge innerhalb eines Platzes und für die Auswahl fürs Finale zählen dann mehr richtige Abgaben, danach die kürzere Bedenkzeit.
+
+**Stabil mit der ganzen Klasse:** Wer nicht verbunden ist (Handy aus, WLAN weg), hält keine Runde auf: Die Runde endet, sobald alle verbundenen Handys abgegeben haben. Bei Zeitlimit melden auch die Handys selbst das Ende der Zeit, falls der Beamer-Laptop kurz schläft. Wer die Seite neu öffnet, wird wiedererkannt und spielt mit seinem Punktestand weiter. Nachzügler können jederzeit einsteigen.
 
 ### Regeln im Detail
 
@@ -71,7 +98,7 @@ Genauso wie bei KBS Simon says, KBS-Kart, Tetris und der Spielewahl:
 - **Qualifying:** Eine Bedarfskarte ist geschafft, wenn die Summe **zwischen 80 und 100 %** des Zielwerts liegt. Dann kommt die nächste Bedarfskarte. Zu viel oder zu wenig beendet den Versuch. Es zählt die **längste Serie**, bei Gleichstand die höhere Trefferquote (Ø, wie nah man im Schnitt am Zielwert war), dann die kürzere Bedenkzeit.
 - **Finale (wie am Tisch):** Alle bekommen dieselbe Bedarfskarte und dieselben 10 Lebensmittel. Wer am nächsten am Zielwert liegt, ohne ihn zu überschreiten, bekommt die Bedarfskarte. Bei Gleichstand bekommen alle Gleichstehenden eine (statt Schere-Stein-Papier). Wer zuerst 3 (bzw. 5) Karten hat **und allein vorn liegt**, gewinnt, sonst geht es weiter.
 
-**Zeitlimits** (nur im Finale, getestet wird Wissen, nicht Tipptempo)
+**Zeitlimits** (im Finale und in der Klassenrunde, getestet wird Wissen, nicht Tipptempo)
 - Reihe: 30 Sekunden plus 3 Sekunden pro Karte in der Reihe (z. B. 45 Sekunden bei 5 Karten).
 - Bedarf: 2 Minuten.
 - Die Runde endet sofort, wenn alle abgegeben haben.
@@ -81,14 +108,15 @@ Genauso wie bei KBS Simon says, KBS-Kart, Tetris und der Spielewahl:
 
 | Taste | Funktion |
 |---|---|
-| Enter | Qualifying starten / beenden, Finale starten, Revanche |
-| Leertaste | Finale: anhalten (nach der Runde) / weiter |
+| Enter | Qualifying starten / beenden, Finale starten, Revanche, nach der Klassenrunde: weiter zum Finale |
+| K | Klassenrunde starten (auch: noch eine Klassenrunde) |
+| Leertaste | Finale und Klassenrunde: anhalten (nach der Runde) / weiter |
 | Esc | Neues Spiel (zurück zur Anmeldung) |
 | F | Vollbild |
 | M | Ton an/aus |
 
 **Tipps**
-- Die Handys sind immer stumm, auch auf der Übungsseite. Ton gibt es nur im Finale über den Beamer-Laptop (mit **M** oder dem Knopf oben rechts ausschaltbar).
+- Die Handys sind immer stumm, auch auf der Übungsseite. Ton gibt es nur über den Beamer-Laptop, im Finale und in der Klassenrunde (mit **M** oder dem Knopf oben rechts ausschaltbar).
 - Auf den Wartebildschirmen stehen „Wusstest du?“-Sätze aus den Infotexten (Makronährstoffe, Energiebedarf).
 - Die Übungsseite hat unter **Alle Karten ansehen** eine Tabelle aller Lebensmittel mit Werten, sortierbar nach Nährwert, und alle Bedarfskarten.
 - Der Bildschirm der Handys bleibt während des Spiels an (sofern der Browser das unterstützt).
@@ -106,6 +134,8 @@ Alle Inhalte stehen in **`public/js/inhalte.js`**. Auf GitHub die Datei öffnen,
 - **`ABSTAND`:** Wie deutlich sich zwei Werte unterscheiden müssen, damit sie zusammen in eine Reihe dürfen.
 - **`TREFFER_PROZENT`:** Ab wie viel Prozent des Zielwerts eine Bedarfskarte im Qualifying als geschafft gilt (voreingestellt 80).
 - **`TIPPS`:** die „Wusstest du?“-Sätze.
+
+Die Punkte der Klassenrunde stehen in `public/js/regeln.js` unter `PUNKTE` (z. B. `zweifelRichtig: 3`) und lassen sich dort genauso ändern.
 
 Nach einer Änderung prüfen die Tests (`node --test tests/regeln.test.mjs`) die Datei: fehlende Werte, doppelte Kennungen, unbekannte Bilder, Kalorien, die gar nicht zu den Nährwerten passen (z. B. verrutschtes Komma), zu wenige deutlich verschiedene Karten für eine Reihe und Bedarfskarten, die sich nicht treffen lassen.
 
@@ -125,7 +155,7 @@ Nach einer Änderung prüfen die Tests (`node --test tests/regeln.test.mjs`) die
 
 ## Kosten
 
-Der kostenlose Cloudflare-Tarif reicht aus (100.000 Anfragen pro Tag). Im Qualifying schickt jedes Handy pro geschaffter Karte bzw. Bedarfskarte und pro Fehler eine kurze Nachricht, im Finale eine pro Abgabe. Eine Unterrichtsstunde mit 30 SuS braucht grob 1.000 bis 2.000 Anfragen.
+Der kostenlose Cloudflare-Tarif reicht aus (100.000 Anfragen pro Tag). Im Qualifying schickt jedes Handy pro geschaffter Karte bzw. Bedarfskarte und pro Fehler eine kurze Nachricht, im Finale und in der Klassenrunde eine pro Abgabe. Eine Unterrichtsstunde mit 30 SuS braucht grob 1.000 bis 3.000 Anfragen.
 
 ---
 
@@ -165,9 +195,17 @@ Im Finale prüft der Server jede Abgabe und entscheidet, wann eine Runde beginnt
 ```
 node --test tests/regeln.test.mjs tests/room.test.mjs   # Inhalte, Regeln und Raum-Logik
 node tests/e2e.mjs                                      # Browser-Durchlauf: Beamer + 5 Handys (Playwright), Bildschirmfotos in tests/ergebnisse/
+node tests/e2e-klasse.mjs                               # Browser-Durchlauf Klassenrunde: Beamer + 6 Handys
+node tests/last.mjs                                     # Lasttest: 30 Handys gleichzeitig (ohne Browser)
 ```
 
-Der Browser-Durchlauf spielt wie eine Klasse: Die Handys lesen die Karten vom Bildschirm und tippen richtig oder absichtlich falsch. Geprüft werden Anmeldung, Qualifying *Reihe* (mit Fehlern, vorzeitig beendet) und Rangliste, ein Finale *Reihe* mit 4 Personen (alle falsch → alle bleiben, Pause und Weiter, Ausscheiden, Platzierungen), Revanche und Abbruch, Qualifying *Bedarf* mit abgelaufener Zeit, ein Finale *Bedarf* mit 3 Personen ohne Zeitlimit (Gleichstand, „Runde beenden“, Sieg mit 3 Karten), die Übungsseite und dass die Handys stumm bleiben.
+Alle Durchläufe lassen sich auch gegen die echte Cloudflare-Umgebung auf dem eigenen Rechner richten: `npx wrangler dev` starten und die Adresse anhängen, z. B. `node tests/last.mjs http://127.0.0.1:8787`.
+
+**Lasttest:** 30 simulierte Handys spielen 10 Runden Klassenrunde *Reihe* (mit Zweifeln), 5 Runden *Bedarf* und ein Qualifying. Unterwegs verlieren 3 Handys die Verbindung und kommen später zurück, 2 Handys geben eine Runde lang nichts ab. Geprüft wird, dass keine Runde hängen bleibt, alle Abgaben zählen und die Auflösung bei allen Handys ankommt (lokal und mit `wrangler dev` jeweils nach wenigen Millisekunden).
+
+Der Klassenrunden-Durchlauf prüft: Mehrheit legt falsch, zu Recht und zu Unrecht zweifeln, Punkte erst beim Aufdecken, Pause und Weiter, ein Handy wird geschlossen und kommt zurück, Endstand, weiter zum Finale, Klassenrunde *Bedarf* und vorzeitiges Beenden.
+
+Der Browser-Durchlauf `e2e.mjs` spielt wie eine Klasse: Die Handys lesen die Karten vom Bildschirm und tippen richtig oder absichtlich falsch. Geprüft werden Anmeldung, Qualifying *Reihe* (mit Fehlern, vorzeitig beendet) und Rangliste, ein Finale *Reihe* mit 4 Personen (alle falsch → alle bleiben, Pause und Weiter, Ausscheiden, Platzierungen), Revanche und Abbruch, Qualifying *Bedarf* mit abgelaufener Zeit, ein Finale *Bedarf* mit 3 Personen ohne Zeitlimit (Gleichstand, „Runde beenden“, Sieg mit 3 Karten), die Übungsseite und dass die Handys stumm bleiben.
 
 **Lizenzen:** Schriften Bungee und Rubik unter SIL Open Font License (siehe `public/fonts/`). QR-Code-Generator von Kazuhiko Arase unter MIT-Lizenz (`public/js/qrcode.js`). Das Schullogo gehört der Karoline-Breitinger-Schule.
 

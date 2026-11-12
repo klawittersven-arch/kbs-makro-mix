@@ -118,8 +118,8 @@ try {
   // ================================================================ REIHE
   await T.click('.seg[aria-label="Spielart"] button:has-text("Reihe")');
   await T.click('.seg[aria-label="Nährwert"] button:has-text("Fett")');
-  await T.click('.seg[aria-label="Dauer des Qualifyings"] button:has-text("2 Minuten")');
-  await T.click('.seg[aria-label="Größe des Finales"] button:has-text("4 Personen")');
+  await T.click('.seg[aria-label="Dauer des Qualifyings"] button:has-text("2 Min.")');
+  await T.click('.seg[aria-label="Größe des Finales"] button:has-text("4 Pers.")');
   await sleep(300);
   if (!(await lena.p.textContent('.card')).includes('Fett')) throw new Error('Handy kennt die Spielart nicht');
   await T.keyboard.press('Enter');
@@ -210,7 +210,7 @@ try {
   // ================================================================ BEDARF
   await T.click('.seg[aria-label="Spielart"] button:has-text("Bedarf")');
   await T.click('.seg[aria-label="Nährwert"] button:has-text("Gemischt")');
-  await T.click('.seg[aria-label="Größe des Finales"] button:has-text("3 Personen")');
+  await T.click('.seg[aria-label="Größe des Finales"] button:has-text("3 Pers.")');
   await T.click('.seg[aria-label="Bedarfskarten zum Sieg"] button:has-text("3 Karten")');
   await T.click('.seg[aria-label="Zeitlimit"] button:has-text("Ohne Zeitlimit")');
   await sleep(300);
