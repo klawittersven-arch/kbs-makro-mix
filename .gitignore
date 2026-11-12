@@ -1,0 +1,4 @@
+node_modules/
+.wrangler/
+tests/ergebnisse/
+.dev.vars

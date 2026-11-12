@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="author" content="Sven Klawitter">
+<meta name="theme-color" content="#0d1030">
+<meta name="description" content="Lernspiel zu Nährwerten und Makronährstoffen: Lebensmittel ordnen und Bedarfskarten treffen.">
+<title>KBS Makro-Mix</title>
+<link rel="icon" href="img/logo.png">
+<link rel="stylesheet" href="css/makro.css">
+</head>
+<body class="handy">
+<main class="app">
+  <header class="top">
+    <h1 class="brand">KBS <span>Makro-Mix</span></h1>
+  </header>
+
+  <section class="panel" id="panel" aria-live="polite"></section>
+
+  <section class="spielfeld" id="spielfeld" hidden>
+    <div class="statuszeile">
+      <div class="runde" id="sRunde"></div>
+      <div class="hinweis" id="sText" aria-live="polite"></div>
+    </div>
+    <div class="zeitbalken" id="sBarBox" hidden><i id="sBar"></i></div>
+    <div class="sinfo" id="sInfo" hidden></div>
+    <div id="spiel" class="spiel"></div>
+  </section>
+</main>
+<script type="module" src="js/ueben.js"></script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+{
+  "name": "kbs-makro-mix",
+  "version": "1.0.0",
+  "private": true,
+  "description": "KBS Makro-Mix – Klassenspiel zu Nährwerten und Makronährstoffen (Reihe und Bedarf), mit Klassenmodus",
+  "type": "module",
+  "scripts": {
+    "start": "node server/local.mjs",
+    "test": "node --test tests/regeln.test.mjs tests/room.test.mjs",
+    "deploy": "npx wrangler deploy"
+  }
+}

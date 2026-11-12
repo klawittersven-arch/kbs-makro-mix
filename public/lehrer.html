@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="author" content="Sven Klawitter">
+<meta name="theme-color" content="#0d1030">
+<title>Klassenmodus · KBS Makro-Mix</title>
+<link rel="icon" href="img/logo.png">
+<link rel="stylesheet" href="css/makro.css">
+</head>
+<body class="beamer">
+<main class="tapp">
+  <header class="ttop">
+    <div class="brandrow">
+      <img src="img/logo.png" alt="Logo der Karoline-Breitinger-Schule" class="tlogo" width="48" height="48">
+      <h1 class="brand">KBS <span>Makro-Mix</span></h1>
+    </div>
+    <div class="tools">
+      <span class="netdot" id="netdot" data-s="offline" title="Verbindung zum Server"></span>
+      <span class="codechip" id="codeChip" hidden></span>
+      <button class="chip" id="btnTon" aria-pressed="true">Ton: an</button>
+      <button class="chip" id="btnFull">Vollbild</button>
+      <button class="chip" id="btnSess">Sitzung</button>
+    </div>
+  </header>
+  <section class="tview" id="view" aria-live="polite">
+    <div class="tcard"><h2>Verbinde …</h2><p class="hint">Der Klassenraum wird vorbereitet.</p></div>
+  </section>
+  <div class="toast" id="toast" role="status" hidden></div>
+  <div class="dlg" id="dlg" hidden>
+    <div class="dlg-box" role="dialog" aria-modal="true" aria-labelledby="dlgT">
+      <h2 id="dlgT">Sitzung</h2>
+      <p>Code dieser Sitzung: <b id="dlgCode"></b>. Namen und Ergebnisse werden 6 Stunden nach der letzten Änderung automatisch gelöscht.</p>
+      <div class="dlg-actions">
+        <button class="ghost-btn" id="btnNewSess">Neue Sitzung mit neuem QR-Code</button>
+        <button class="ghost-btn danger" id="btnWipe">Sitzung beenden und Daten jetzt löschen</button>
+        <button class="big-btn" id="btnDlgClose">Zurück</button>
+      </div>
+    </div>
+  </div>
+</main>
+<script src="js/qrcode.js"></script>
+<script type="module" src="js/lehrer.js"></script>
+</body>
+</html>

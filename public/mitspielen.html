@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="author" content="Sven Klawitter">
+<meta name="theme-color" content="#0d1030">
+<title>Mitspielen · KBS Makro-Mix</title>
+<link rel="icon" href="img/logo.png">
+<link rel="stylesheet" href="css/makro.css">
+</head>
+<body class="handy">
+<main class="app">
+  <header class="top">
+    <h1 class="brand">KBS <span>Makro-Mix</span></h1>
+    <div class="tools">
+      <span class="netdot" id="netdot" data-s="offline" title="Verbindung"></span>
+    </div>
+  </header>
+
+  <section class="panel" id="panel" aria-live="polite">
+    <div class="card"><h2>Verbinde …</h2><p>Einen Moment, die Klasse wird gesucht.</p></div>
+  </section>
+
+  <section class="spielfeld" id="spielfeld" hidden>
+    <div class="statuszeile">
+      <div class="runde" id="sRunde"></div>
+      <div class="hinweis" id="sText" aria-live="polite"></div>
+    </div>
+    <div class="zeitbalken" id="sBarBox"><i id="sBar"></i></div>
+    <div class="sinfo" id="sInfo" hidden></div>
+    <div id="spiel" class="spiel"></div>
+  </section>
+
+  <div class="countdown" id="countdown" hidden><div><b id="cdNum">3</b><small id="cdText"></small></div></div>
+  <div class="toast" id="toast" role="status" hidden></div>
+</main>
+<script type="module" src="js/mitspielen.js"></script>
+</body>
+</html>
