@@ -512,3 +512,87 @@ test('Klassenrunde Bedarf: Punkte nach Nähe zum Zielwert, Verteilung, häufig g
   assert.notEqual(K.b + ':' + K.hand.join(), f.b + ':' + f.hand.join(), 'neue Bedarfskarte');
   assert.deepEqual(R.last(P[1], 'you').klasse.me.zuletzt.drueber, true);
 });
+
+// ================================================================ Computergegner (CPU)
+import { cpuLuecke, cpuAuswahl, istCpu, cpuName, rng as zufall, kette as kette2, richtigeLuecke as luecke2 } from '../public/js/regeln.js';
+
+test('CPU: Kennung, Name und Stärke (schwer trifft öfter als leicht)', () => {
+  assert.ok(istCpu('cpu-mittel') && istCpu('cpu-schwer-2') && !istCpu('cpuxyz12345') && !istCpu('cpu-super'));
+  assert.equal(cpuName('cpu-mittel-2', ['abcdefgh1', 'cpu-mittel-2']), 'CPU (mittel)');
+  assert.equal(cpuName('cpu-leicht-3', ['abcdefgh1', 'cpu-mittel-2', 'cpu-leicht-3']), 'CPU 2 (leicht)');
+  const quote = stufe => {
+    let ok = 0, n = 0;
+    for (let s = 1; s <= 200; s++) {
+      const k = kette2(s, 'kcal'), r = zufall(s);
+      for (let i = 1; i < k.length; i++) { ok += cpuLuecke(k.slice(0, i), k[i], 'kcal', stufe, r) === luecke2(k.slice(0, i), k[i], 'kcal'); n++; }
+    }
+    return ok / n;
+  };
+  const l = quote('leicht'), m = quote('mittel'), s = quote('schwer');
+  assert.ok(l < m && m < s, `leicht ${l} < mittel ${m} < schwer ${s}`);
+  assert.ok(s > 0.85 && l < 0.7);
+  const pick = cpuAuswahl([0, 1, 2, 3, 4, 5, 6, 7, 8, 9], 0, 'schwer', zufall(3));
+  assert.ok(pick.length >= 1 && pick.length <= 5 && pick.every(k => k >= 0 && k < 10));
+});
+
+test('CPU im Finale Reihe: allein gegen den Computer, CPU antwortet sofort, wenn der Mensch abgegeben hat', async () => {
+  const { R, T, P } = await klasse(1, { art: 'reihe', nw: 'kcal', zeit: 'an' });
+  await R.msg(T, { t: 'quali-start' });
+  await R.msg(T, { t: 'quali-end' });
+  let r = room(R, T);
+  assert.deepEqual(r.final.p, [P[0].pid, 'cpu-mittel-2'], 'nur eine Person → CPU (mittel) ist vorausgewählt');
+  // Nur CPUs geht nicht
+  await R.msg(T, { t: 'final-start', p: ['cpu-schwer', 'cpu-leicht'] });
+  assert.equal(R.last(T, 'error').why, 'final-players');
+  await R.msg(T, { t: 'final-start', p: [P[0].pid, 'cpu-schwer'] });
+  let f = room(R, T).final;
+  assert.deepEqual(f.names, ['Lena K.', 'CPU (schwer)']);
+  assert.ok(f.cpuAt[1] > f.startAt && f.cpuAt[0] === 0);
+  assert.equal(f.st[1].gap, -1, 'die Antwort der CPU ist vorher nicht sichtbar');
+  // Runde für Runde: Lena legt immer richtig. Die CPU antwortet mit, das Spiel endet irgendwann
+  for (let runde = 1; runde <= 12 && room(R, T).phase === 'final'; runde++) {
+    f = room(R, T).final;
+    R.tick(f.startAt - R.now() + 10);
+    // Zu früh „cpu“ melden: nichts passiert
+    await R.msg(T, { t: 'cpu', nr: f.nr, r: f.round });
+    assert.equal(room(R, T).final.abgegeben[1], false);
+    await R.msg(P[0], { t: 'f-reihe', nr: f.nr, r: f.round, gap: richtigeLuecke(f.reihe, f.neu, f.nw), ms: 2000 });
+    const g = room(R, T).final;
+    assert.ok(g.round > f.round || g.state === 'done', 'Runde ist ausgewertet, ohne auf die CPU zu warten');
+  }
+  f = room(R, T).final;
+  assert.equal(f.state, 'done');
+  assert.equal(f.places[0], 1, 'wer immer richtig liegt, gewinnt gegen die CPU');
+});
+
+test('CPU im Finale Bedarf: CPU gibt nach ihrer Bedenkzeit ab, zwei CPUs gegen eine Person', async () => {
+  const { R, T, P } = await klasse(1, { art: 'bedarf', nw: 'mix', sieg: 3 });
+  await R.msg(T, { t: 'quali-start' });
+  await R.msg(T, { t: 'quali-end' });
+  await R.msg(T, { t: 'final-pick', p: [P[0].pid, 'cpu-leicht', 'cpu-leicht'] });
+  assert.deepEqual(room(R, T).final.p, [P[0].pid, 'cpu-leicht-2', 'cpu-leicht-3']);
+  await R.msg(T, { t: 'final-start', p: room(R, T).final.p });
+  let f = room(R, T).final;
+  assert.deepEqual(f.names, ['Lena K.', 'CPU 1 (leicht)', 'CPU 2 (leicht)']);
+  // Bedenkzeit der CPUs ist um → beide geben ab, Lena noch nicht
+  R.tick(Math.max(f.cpuAt[1], f.cpuAt[2]) - R.now() + 10);
+  await R.msg(T, { t: 'cpu', nr: f.nr, r: 1 });
+  f = room(R, T).final;
+  assert.deepEqual(f.abgegeben, [false, true, true]);
+  assert.equal(f.round, 1);
+  await R.msg(P[0], { t: 'f-bedarf', nr: f.nr, r: 1, pick: auswahl(f, 'best'), ms: 9000 });
+  f = room(R, T).final;
+  assert.equal(f.round, 2);
+  assert.ok(f.last.gewinner.includes(0), 'die beste Kombination gewinnt die Karte');
+  assert.equal(f.last.abgaben[1].pick.length > 0, true);
+  // Zeit läuft ab, Lena gibt nicht ab: CPUs zählen trotzdem
+  R.tick(f.deadline - R.now() + GNADE + 10);
+  await R.msg(T, { t: 'tick', nr: f.nr, r: 2 });
+  f = room(R, T).final;
+  assert.equal(f.round, 3);
+  assert.ok(f.last.abgaben[1].pick.length > 0 && f.last.abgaben[0].pick.length === 0);
+  // Revanche behält die CPUs
+  await R.msg(T, { t: 'final-abort' });
+  await R.msg(T, { t: 'final-start', p: room(R, T).final.p });
+  assert.equal(room(R, T).final.names[2], 'CPU 2 (leicht)');
+});

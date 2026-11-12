@@ -3,7 +3,7 @@ import { KNet, randomCode, randomId, store } from './net.js';
 import {
   SPIELARTEN, ART_TEXT, NW, NW_WAHL, NW_WAHL_TEXT, nwWahlKurz, STUFEN, STUFE_TEXT, ZEITEN, ZEIT_TEXT, QUALI_MINUTEN,
   FINAL_GROESSEN, SIEG_KARTEN, SCHLUSS_GNADE, GNADE, zeitLimit, prozentText, mitEinheit, wert, bewerte, sortiert,
-  KLASSE_RUNDEN, PUNKTE,
+  KLASSE_RUNDEN, PUNKTE, CPU_STUFEN, istCpu,
 } from './regeln.js';
 import {
   $, esc, LM, BK, fmtMs, mmss, tipp, lmKarte, lmGross, bedarfKarte, reiheHtml, reiheAufloesung, kombiListe, kombiText, balken,
@@ -80,7 +80,7 @@ function onMessage(m) {
     case 'error':
       if (m.why === 'code-taken') newSession();
       else if (m.why === 'final-offline') toast('Alle Finalisten-Handys müssen verbunden sein. Wer nicht verbunden ist, öffnet die Seite neu oder scannt den QR-Code noch einmal.');
-      else if (m.why === 'final-players') toast('Bitte mindestens zwei verschiedene Personen für das Finale auswählen.');
+      else if (m.why === 'final-players') toast('Bitte mindestens zwei Finalisten auswählen, davon mindestens eine Person (eine CPU kann Gegner sein).');
       else if (m.why === 'no-players') toast('Es hat sich noch niemand angemeldet.');
       else if (m.why === 'kick-finalist') toast('Finalisten können während des Finales nicht entfernt werden.');
       break;
@@ -296,7 +296,7 @@ function setup() {
   if (screen !== 'setup') {
     screen = 'setup';
     view.innerHTML = `<div class="tpage">
-      <div class="thead"><div><h2>Finale</h2><p>Die Besten aus dem Qualifying sind ausgewählt. Gespielt wird auf dem Handy, die Auflösung kommt am Beamer. Die Spielart kannst du fürs Finale noch ändern.</p></div></div>
+      <div class="thead"><div><h2>Finale</h2><p>Die Besten sind ausgewählt. Gespielt wird auf dem Handy, die Auflösung kommt am Beamer. Die Spielart kannst du fürs Finale noch ändern. Zu wenige da? Wähle als Gegner eine 🤖 CPU (leicht, mittel oder schwer).</p></div></div>
       <div class="tcard"><div class="slots" id="slots"></div></div>
       <div class="tcard"><div class="optgrid" id="opts"></div></div>
       <div class="ranks" id="ranks"></div>
@@ -318,34 +318,38 @@ function setup() {
     $('#btnFinal').onclick = startFinal;
   }
   const slots = $('#slots');
-  const n = Math.min(cfg.finalN, Math.max(2, all.length));
+  const n = Math.max(2, Number(cfg.finalN));
   slots.innerHTML = '';
   for (let i = 0; i < n; i++) {
     const pid = f.p[i] || '';
     const pl = room.players.find(p => p.pid === pid);
+    const cpu = istCpu(pid) ? pid.split('-').slice(0, 2).join('-') : '';
     const d = document.createElement('div'); d.className = 'slot';
     d.innerHTML = `<h3>Finalist/in ${i + 1}</h3>`;
     const sel = document.createElement('select');
-    sel.innerHTML = '<option value="">– niemand –</option>' + all.map(p => `<option value="${esc(p.pid)}" ${p.pid === pid ? 'selected' : ''}>${p.rank ? p.rank + '. ' : ''}${esc(p.name)}${p.q ? ' · ' + ergebnis(art, p.q) : ''}</option>`).join('');
+    sel.innerHTML = '<option value="">– niemand –</option>' + all.map(p => `<option value="${esc(p.pid)}" ${p.pid === pid ? 'selected' : ''}>${p.rank ? p.rank + '. ' : ''}${esc(p.name)}${p.q ? ' · ' + ergebnis(art, p.q) : ''}</option>`).join('')
+      + `<optgroup label="Computergegner">${CPU_STUFEN.map(st => `<option value="cpu-${st}" ${cpu === 'cpu-' + st ? 'selected' : ''}>🤖 CPU (${st})</option>`).join('')}</optgroup>`;
     sel.onchange = () => {
+      // Menschen nur einmal, CPUs dürfen mehrfach mitspielen
       const next = [];
-      slots.querySelectorAll('select').forEach(s => { if (s.value && !next.includes(s.value)) next.push(s.value); });
+      slots.querySelectorAll('select').forEach(s => { if (s.value && (istCpu(s.value) || !next.includes(s.value))) next.push(s.value); });
       send({ t: 'final-pick', p: next });
     };
     d.appendChild(sel);
     const on = document.createElement('div');
-    on.className = 'online ' + (pl ? (pl.online ? 'ja' : 'nein') : '');
-    on.textContent = pl ? (pl.online ? '● Handy verbunden' : '● Handy nicht verbunden: Seite neu öffnen') : '';
+    on.className = 'online ' + (cpu ? 'ja' : pl ? (pl.online ? 'ja' : 'nein') : '');
+    on.textContent = cpu ? '🤖 Computergegner, spielt ohne Handy' : pl ? (pl.online ? '● Handy verbunden' : '● Handy nicht verbunden: Seite neu öffnen') : '';
     d.appendChild(on);
     slots.appendChild(d);
   }
   $('#ranks').innerHTML = ranked.map(p => `<div class="rk ${f.p.includes(p.pid) ? 'fin' : ''}"><span class="p">${p.rank}.</span><span class="nm">${esc(p.name)}</span><span></span><span class="tm">${esc(nebenwert(art, p.q))}</span><span class="lv">${ergebnis(art, p.q)}</span></div>`).join('');
-  $('#btnFinal').disabled = f.p.length < 2;
+  $('#btnFinal').disabled = f.p.length < 2 || f.p.every(istCpu);
 }
 function startFinal() {
   Ton.init();
   const f = room.final || { p: [] };
-  if (f.p.length < 2) return toast('Bitte mindestens zwei Personen für das Finale auswählen.');
+  if (f.p.length < 2) return toast('Bitte mindestens zwei Finalisten auswählen (oder eine CPU als Gegner).');
+  if (f.p.every(istCpu)) return toast('Mindestens eine Person muss mitspielen.');
   send({ t: 'final-start', p: f.p, cfg });
 }
 function toLobby() {
@@ -463,6 +467,8 @@ function buehne(f) {
         <div class="handbeamer">${f.hand.map(i => lmKarte(i)).join('')}</div>
         <p class="hint">Bis zu 5 Lebensmittel (je 100 g). Rate mit: Welche Kombination passt am besten?</p></div>`;
     }
+    // CPU: Ist ihre Bedenkzeit um, gibt der Beamer dem Server Bescheid (sie antwortet sonst, sobald alle Menschen abgegeben haben)
+    (f.cpuAt || []).forEach(t => { if (t) at(() => send({ t: 'cpu', nr: f.nr, r: f.round }), t + 150); });
     // Zeitbalken; ist die Zeit um, gibt der Beamer dem Server Bescheid
     const box = $('#fBarBox'); box.hidden = !f.deadline;
     if (f.deadline) {
@@ -519,7 +525,7 @@ function bedarfAufl(f) {
     const e = bewerte(L.hand, a.pick || [], L.b);
     const info = !pick.length ? (a.why ? 'keine Abgabe' : '–') : e.drueber ? `zu viel (${Math.round(e.sum * 100 / zielZ)} %)` : `${Math.round(e.sum * 100 / zielZ)} %`;
     return `<div class="abgabe-spalte ${gewonnen ? 'sieg' : e.drueber ? 'drueber' : ''}">
-      <div class="asname"><b>${esc(n)}</b>${gewonnen ? '<span class="schild ok">🃏 bekommt die Karte</span>' : ''}</div>
+      <div class="asname"><b>${istCpu(f.p[i]) ? '🤖 ' : ''}${esc(n)}</b>${gewonnen ? '<span class="schild ok">🃏 bekommt die Karte</span>' : ''}</div>
       ${pick.length ? kombiListe(pick, nw) : '<p class="hint">Keine Abgabe</p>'}
       <div class="assumme"><b>${esc(zehntelText(e.sum, nw).split(' ')[0])}<small>${esc(NW[nw].einheit)}</small></b><span>${esc(info)}</span></div>
       ${balken(e.sum, zielZ)}
@@ -559,7 +565,7 @@ function seite(f) {
     else txt = f.art === 'reihe' ? 'noch im Spiel' : '';
     const karten = f.art === 'bedarf' ? `<div class="kartenzahl" title="Bedarfskarten">${'<i></i>'.repeat(f.karten[i])}<b>${f.karten[i]}</b><span>/ ${f.sieg}</span></div>` : '';
     const off = f.online && !f.online[i] && room.phase === 'final' ? '<div class="warn">Handy nicht verbunden!</div>' : '';
-    return `<div class="fcard ${cls}" data-slot="${i}"><div class="fn"><b>${esc(f.names[i])}</b></div>${karten}<div class="fs">${txt}</div>${off}</div>`;
+    return `<div class="fcard ${cls}" data-slot="${i}"><div class="fn"><b>${istCpu(pid) ? '🤖 ' : ''}${esc(f.names[i])}</b></div>${karten}<div class="fs">${txt}</div>${off}</div>`;
   }).join('');
   $('#btnStop').disabled = !lauf;
 }

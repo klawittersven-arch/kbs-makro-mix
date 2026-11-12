@@ -84,6 +84,15 @@ Die ganze Klasse spielt gleichzeitig, Runde für Runde. Am Beamer stehen die Kar
 
 **Stabil mit der ganzen Klasse:** Wer nicht verbunden ist (Handy aus, WLAN weg), hält keine Runde auf: Die Runde endet, sobald alle verbundenen Handys abgegeben haben. Bei Zeitlimit melden auch die Handys selbst das Ende der Zeit, falls der Beamer-Laptop kurz schläft. Wer die Seite neu öffnet, wird wiedererkannt und spielt mit seinem Punktestand weiter. Nachzügler können jederzeit einsteigen.
 
+### Computergegner (CPU) im Finale
+
+Im Finale lässt sich in jeder Auswahlliste statt einer Person ein **🤖 CPU-Gegner** wählen: *leicht*, *mittel* oder *schwer*. Hat sich nur eine Person qualifiziert, ist Platz 2 automatisch mit „CPU (mittel)“ belegt. Es können auch mehrere CPUs mitspielen (z. B. eine Person gegen zwei CPUs), aber mindestens eine Person muss dabei sein.
+
+- Die CPU schätzt die Nährwerte wie ein Mensch, nur mit einem festen Schätzfehler: *leicht* grob, *schwer* fast genau. Deshalb liegt sie vor allem bei knappen Entscheidungen daneben.
+- Ungefähre Stärke: *Reihe* – leicht ordnet 58 % der Karten richtig ein, mittel 73 %, schwer 93 %. *Bedarf* – leicht landet im Schnitt bei 74 % des Zielwerts, mittel bei 83 %, schwer bei 92 % (dabei überschreitet sie ihn manchmal).
+- Die CPU lässt sich ein paar Sekunden Bedenkzeit und erscheint dann am Beamer als „abgegeben“. Haben alle Menschen abgegeben, antwortet sie sofort: Niemand wartet auf die CPU.
+- Die Stärken stehen in `public/js/regeln.js` unter `CPU_FEHLER` (Reihe) und `CPU_BEDARF` (Bedarf). Kleinere Zahl = genauer.
+
 ### Regeln im Detail
 
 **Reihe**
@@ -197,6 +206,7 @@ node --test tests/regeln.test.mjs tests/room.test.mjs   # Inhalte, Regeln und Ra
 node tests/e2e.mjs                                      # Browser-Durchlauf: Beamer + 5 Handys (Playwright), Bildschirmfotos in tests/ergebnisse/
 node tests/e2e-klasse.mjs                               # Browser-Durchlauf Klassenrunde: Beamer + 6 Handys
 node tests/last.mjs                                     # Lasttest: 30 Handys gleichzeitig (ohne Browser)
+node tests/e2e-cpu.mjs                                  # Browser-Durchlauf: eine Person gegen die CPU (Reihe und Bedarf)
 ```
 
 Alle Durchläufe lassen sich auch gegen die echte Cloudflare-Umgebung auf dem eigenen Rechner richten: `npx wrangler dev` starten und die Adresse anhängen, z. B. `node tests/last.mjs http://127.0.0.1:8787`.

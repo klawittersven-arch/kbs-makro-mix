@@ -145,7 +145,10 @@ export const summe = (pick, nw) => pick.reduce((s, i) => s + zehntel(wert(LEBENS
 
 // Beste Auswahl aus der Hand: höchste Summe, die den Zielwert nicht überschreitet (bei Gleichstand weniger Karten)
 export function besteKombi(hand, nw, zielZ, max = MAX_AUSWAHL) {
-  const w = hand.map(i => zehntel(wert(LEBENSMITTEL[i], nw)));
+  return besteMitWerten(hand, hand.map(i => zehntel(wert(LEBENSMITTEL[i], nw))), zielZ, max);
+}
+// Wie besteKombi, aber mit vorgegebenen Werten (w[k] gehört zu hand[k]) – z. B. geschätzte Werte der CPU
+export function besteMitWerten(hand, w, zielZ, max = MAX_AUSWAHL) {
   let best = { pick: [], sum: 0 };
   const n = hand.length, cur = [];
   (function such(start, s) {
@@ -256,4 +259,39 @@ export function bedarfPunkte(sumZ, zielZ, bestZ, leer = false) {
   if (sumZ * 100 >= zielZ * 90) return PUNKTE.gut;
   if (sumZ * 100 >= zielZ * TREFFER_PROZENT) return PUNKTE.ok;
   return 0;
+}
+
+// ---------------------------------------------------------------- Computergegner (CPU) im Finale
+// Die CPU schätzt Nährwerte wie ein Mensch: mit einem Schätzfehler. Leicht schätzt grob, schwer fast genau.
+// Deshalb macht sie vor allem bei knappen Entscheidungen Fehler.
+export const CPU_STUFEN = ['leicht', 'mittel', 'schwer'];
+export const CPU_FEHLER = { leicht: 0.75, mittel: 0.4, schwer: 0.14 }; // Reihe: Streuung der Schätzung (log-normal)
+// Bedarf: Beim Kombinieren addieren sich Schätzfehler, darum kleinere Streuung und ein Sicherheitsabstand zum Zielwert
+export const CPU_BEDARF = { leicht: { fehler: 0.45, ziel: 0.85 }, mittel: { fehler: 0.22, ziel: 0.9 }, schwer: { fehler: 0.07, ziel: 0.96 } };
+export const istCpu = pid => typeof pid === 'string' && /^cpu-(leicht|mittel|schwer)(-\d)?$/.test(pid);
+export const cpuStufe = pid => istCpu(pid) ? pid.split('-')[1] : null;
+// Name im Spiel, z. B. „CPU (mittel)“ bzw. „CPU 2 (mittel)“, wenn mehrere CPUs mitspielen
+export function cpuName(pid, alle = [pid]) {
+  const cpus = alle.filter(istCpu);
+  const nr = cpus.length > 1 ? ' ' + (cpus.indexOf(pid) + 1) : '';
+  return `CPU${nr} (${cpuStufe(pid)})`;
+}
+function normal(r) { // Standardnormalverteilt (Box-Muller)
+  const u = Math.max(1e-9, r()), v = r();
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+}
+const schaetze = (x, fehler, r) => x * Math.exp(fehler * normal(r));
+// Bedenkzeit der CPU in ms (sie antwortet sofort, sobald alle Menschen abgegeben haben)
+export const cpuDenkzeit = (art, r) => Math.round(art === 'bedarf' ? 8000 + r() * 12000 : 3000 + r() * 6000);
+// Reihe: In welche Lücke legt die CPU die neue Karte? (Die Reihe im Finale ist immer richtig sortiert)
+export function cpuLuecke(reiheIdx, neu, nw, stufe, r) {
+  const x = schaetze(wert(LEBENSMITTEL[neu], nw), CPU_FEHLER[stufe] || CPU_FEHLER.mittel, r);
+  return reiheIdx.filter(i => wert(LEBENSMITTEL[i], nw) < x).length;
+}
+// Bedarf: Welche Lebensmittel (Positionen in der Hand) wählt die CPU? Sie zielt knapp unter den Zielwert.
+export function cpuAuswahl(handIdx, bIdx, stufe, r) {
+  const b = BEDARFSKARTEN[bIdx], c = CPU_BEDARF[stufe] || CPU_BEDARF.mittel;
+  const w = handIdx.map(i => zehntel(schaetze(wert(LEBENSMITTEL[i], b.wert), c.fehler, r)));
+  const best = besteMitWerten(handIdx.map((_, k) => k), w, Math.floor(zielZehntel(b) * c.ziel));
+  return best.pick.length ? best.pick.sort((x, y) => x - y) : [w.indexOf(Math.min(...w))];
 }

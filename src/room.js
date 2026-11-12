@@ -8,6 +8,7 @@ import {
   zeitLimit, rundenPlan, kette, richtigeLuecke, bedarfFinalRunde, sauberePick, bewerte, besteKombi, zielZehntel,
   vergleichQuali, zufallsSeed, mischSeed, nwFuer,
   KLASSE_RUNDEN, PUNKTE, KLASSE_PAUSE, reiheFehler, passtLuecke, mehrheit, bedarfPunkte,
+  CPU_STUFEN, istCpu, cpuName, cpuDenkzeit, cpuLuecke, cpuAuswahl, rng,
 } from '../public/js/regeln.js';
 
 export const MAX_PLAYERS = 60;
@@ -207,7 +208,7 @@ export class RoomLogic {
         if (s.phase !== 'quali' || !s.quali) return;
         this.qualiSchliessen(s);
         s.phase = 'final-setup';
-        s.final = { p: this.ranking().slice(0, s.cfg.finalN), state: 'setup' };
+        s.final = { p: this.vorauswahl(s), state: 'setup' };
         await this.persist(); this.pushAll(); return;
       }
       case 'final-pick': {
@@ -221,14 +222,14 @@ export class RoomLogic {
         if (msg.t === 'final-start' && s.phase !== 'final-setup') return;
         if (msg.t === 'revanche' && s.phase !== 'podium') return;
         const p = msg.t === 'revanche' && f ? f.p.slice() : this.cleanFinalists(msg.p, s);
-        if (!p || p.length < 2 || !p.every(pid => s.players[pid])) return conn.send({ t: 'error', why: 'final-players' });
+        if (!p || p.length < 2 || !p.every(pid => istCpu(pid) || s.players[pid]) || p.every(istCpu)) return conn.send({ t: 'error', why: 'final-players' });
         const on = this.online();
-        if (!p.every(pid => on.has(pid))) return conn.send({ t: 'error', why: 'final-offline' });
+        if (!p.every(pid => istCpu(pid) || on.has(pid))) return conn.send({ t: 'error', why: 'final-offline' });
         if (msg.cfg) s.cfg = cleanCfg(msg.cfg, s.cfg);
         const seed = zufallsSeed(), c = s.cfg;
         s.nr++;
         const neu = {
-          nr: s.nr, art: c.art, p, names: p.map(pid => s.players[pid].name), seed,
+          nr: s.nr, art: c.art, p, names: p.map(pid => istCpu(pid) ? cpuName(pid, p) : s.players[pid].name), seed,
           nwWahl: c.nw, nw: c.art === 'reihe' && c.nw === 'mix' ? NAEHRWERTE[mischSeed(seed, 6) % 4] : c.nw,
           stufe: c.stufe, zeit: c.zeit, sieg: c.sieg, round: 1, state: 'run', last: null, paused: false, haltNext: false,
           revanche: msg.t === 'revanche' ? ((f && f.revanche) || 0) + 1 : 0,
@@ -243,6 +244,7 @@ export class RoomLogic {
         }
         Object.assign(neu, rundenPlan(now + VORLAUF_START, neu.art, 1, neu.zeit));
         neu.first = true;
+        this.cpuPlanen(neu);
         s.final = neu;
         s.phase = 'final';
         await this.persist(); this.pushAll(); return;
@@ -252,12 +254,19 @@ export class RoomLogic {
         if (!laeuft() || f.paused || !f.startAt || now < f.startAt) return;
         if (msg.t === 'tick' && (!f.deadline || now < f.deadline + GNADE)) return; // ohne Zeitlimit: nie
         const why = msg.t === 'tick' ? 'zeit' : 'stopp';
+        this.cpuZuege(f, true);
         const dauer = msg.t === 'tick' ? zeitLimit(f.art, f.art === 'reihe' ? f.reihe.length : 0, f.zeit) : Math.round(now - f.startAt);
         f.st.forEach(x => {
           if (!x.alive || x.res) return;
           if (f.art === 'reihe') Object.assign(x, { res: 'fail', why, gap: -1, dist: 99, ms: dauer });
           else Object.assign(x, { res: 'ab', why, pick: [], sum: 0, drueber: false, ms: dauer });
         });
+        return this.maybeResolve(s);
+      }
+      case 'cpu': {
+        // Der Beamer meldet: Die Bedenkzeit einer CPU ist um → sie gibt ab
+        if (!laeuft() || f.paused || !f.startAt) return;
+        if (!this.cpuZuege(f, false)) return;
         return this.maybeResolve(s);
       }
       case 'halt': {
@@ -327,7 +336,7 @@ export class RoomLogic {
           s.players[pid].q = pk ? { lvl: pk.p, acc: pk.richtig, ms: pk.ms, v: 0, fehler: 0, done: true, klasse: true } : null;
         }
         s.phase = 'final-setup';
-        s.final = { p: this.ranking().slice(0, s.cfg.finalN), state: 'setup' };
+        s.final = { p: this.vorauswahl(s), state: 'setup' };
         await this.persist(); this.pushAll(); return;
       }
       case 'to-lobby': {
@@ -351,9 +360,22 @@ export class RoomLogic {
     }
   }
 
+  // Finalisten prüfen. „cpu-leicht“, „cpu-mittel“, „cpu-schwer“ = Computergegner; jede CPU bekommt eine eigene Kennung je Platz.
   cleanFinalists(list, s) {
-    const p = Array.isArray(list) ? list.map(String).filter(pid => s.players[pid]) : [];
-    if (new Set(p).size !== p.length || p.length > 4) return null;
+    if (!Array.isArray(list)) return null;
+    const p = [];
+    for (const raw of list.map(String)) {
+      if (istCpu(raw)) p.push(raw.split('-').slice(0, 2).join('-') + '-' + (p.length + 1));
+      else if (s.players[raw]) p.push(raw);
+    }
+    const menschen = p.filter(pid => !istCpu(pid));
+    if (new Set(menschen).size !== menschen.length || p.length > 4) return null;
+    return p;
+  }
+  // Vorauswahl fürs Finale: die Besten; ist nur eine Person da, spielt sie gegen die CPU (mittel)
+  vorauswahl(s) {
+    const p = this.ranking().slice(0, s.cfg.finalN);
+    if (p.length === 1) p.push('cpu-mittel-2');
     return p;
   }
 
@@ -448,27 +470,61 @@ export class RoomLogic {
         if (f.deadline && now > f.deadline + GNADE) return;
         const slot = f.p.indexOf(pid); if (slot < 0) return;
         const x = f.st[slot]; if (!x.alive || x.res) return;
-        const limit = zeitLimit(f.art, f.art === 'reihe' ? f.reihe.length : 0, f.zeit);
-        x.ms = limit ? Math.min(ms(msg.ms), limit) : ms(msg.ms);
         if (msg.t === 'f-reihe' && f.art === 'reihe') {
           const gap = int(msg.gap, 0, f.reihe.length, -1);
           if (gap < 0) return;
-          const richtig = richtigeLuecke(f.reihe, f.kette[f.round], f.nw);
-          Object.assign(x, { gap, dist: Math.abs(gap - richtig), res: gap === richtig ? 'ok' : 'fail', why: gap === richtig ? '' : 'falsch' });
+          this.abgabeReihe(f, slot, gap, ms(msg.ms));
         } else if (msg.t === 'f-bedarf' && f.art === 'bedarf') {
           const pick = sauberePick(msg.pick);
           if (!pick || !pick.length) return;
-          const e = bewerte(f.hand, pick, f.b);
-          Object.assign(x, { res: 'ab', why: '', pick, sum: e.sum, drueber: e.drueber });
+          this.abgabeBedarf(f, slot, pick, ms(msg.ms));
         } else return;
         return this.maybeResolve(s);
       }
     }
   }
 
+  // Abgabe im Finale (Mensch oder CPU)
+  abgabeReihe(f, slot, gap, dauer) {
+    const x = f.st[slot], limit = zeitLimit(f.art, f.reihe.length, f.zeit);
+    const richtig = richtigeLuecke(f.reihe, f.kette[f.round], f.nw);
+    Object.assign(x, { gap, dist: Math.abs(gap - richtig), res: gap === richtig ? 'ok' : 'fail', why: gap === richtig ? '' : 'falsch', ms: limit ? Math.min(dauer, limit) : dauer });
+  }
+  abgabeBedarf(f, slot, pick, dauer) {
+    const x = f.st[slot], limit = zeitLimit(f.art, 0, f.zeit);
+    const e = bewerte(f.hand, pick, f.b);
+    Object.assign(x, { res: 'ab', why: '', pick, sum: e.sum, drueber: e.drueber, ms: limit ? Math.min(dauer, limit) : dauer });
+  }
+  // CPU: Bedenkzeit und Antwort für die neue Runde festlegen (gleicher Startwert → nachvollziehbar)
+  cpuPlanen(f) {
+    f.cpu = f.p.map((pid, i) => {
+      if (!istCpu(pid) || !f.st[i].alive) return null;
+      const r = rng(mischSeed(f.seed, f.round, i, 99));
+      const denk = cpuDenkzeit(f.art, r), stufe = pid.split('-')[1];
+      return f.art === 'reihe'
+        ? { denk, gap: cpuLuecke(f.reihe, f.kette[f.round], f.nw, stufe, r) }
+        : { denk, pick: cpuAuswahl(f.hand, f.b, stufe, r) };
+    });
+  }
+  // CPUs geben ab, deren Bedenkzeit um ist (alle = sofort). Rückgabe: ob eine CPU abgegeben hat
+  cpuZuege(f, alle) {
+    const now = this.io.now();
+    let neu = false;
+    (f.cpu || []).forEach((c, i) => {
+      const x = f.st[i];
+      if (!c || !x.alive || x.res || !f.startAt) return;
+      if (!alle && now < f.startAt + c.denk - 300) return;
+      if (f.art === 'reihe') this.abgabeReihe(f, i, c.gap, c.denk); else this.abgabeBedarf(f, i, c.pick, c.denk);
+      neu = true;
+    });
+    return neu;
+  }
+
   // Alle Verbliebenen haben geantwortet (oder die Zeit ist um): Runde auswerten
   async maybeResolve(s) {
     const f = s.final;
+    // Haben alle Menschen abgegeben, wartet niemand auf die CPU
+    if (f.st.every((x, i) => !x.alive || x.res || istCpu(f.p[i]))) this.cpuZuege(f, true);
     if (f.st.some(x => x.alive && !x.res)) {
       await this.persist(); this.pushAll(); return;
     }
@@ -510,6 +566,7 @@ export class RoomLogic {
       f.first = false;
       if (f.art === 'bedarf') Object.assign(f, bedarfFinalRunde(f.seed, f.round, f.nwWahl));
       for (const x of f.st) if (x.alive) Object.assign(x, { res: null, why: '', ms: 0, gap: -1, dist: 0, pick: null, sum: 0, drueber: false });
+      this.cpuPlanen(f);
       if (f.haltNext) { f.paused = true; f.haltNext = false; f.startAt = 0; f.deadline = 0; }
       else Object.assign(f, rundenPlan(now + PAUSE[f.art], f.art, f.art === 'reihe' ? f.reihe.length : 0, f.zeit));
     }
@@ -692,6 +749,7 @@ export class RoomLogic {
       round: f.round, startAt: f.startAt, deadline: f.deadline, paused: f.paused, haltNext: f.haltNext, first: f.first, last: f.last, revanche: f.revanche,
       alive: f.st.map(x => x.alive), places: f.state === 'done' ? f.st.map(x => x.place) : null,
       abgegeben: f.st.map(x => !!x.res),
+      cpuAt: (f.cpu || []).map(c => c && f.startAt ? f.startAt + c.denk : 0),
     };
     if (f.art === 'reihe') {
       v.reihe = f.reihe; v.neu = f.state === 'run' ? f.kette[f.round] : null; v.total = f.kette.length - 1;
@@ -709,7 +767,7 @@ export class RoomLogic {
       return { pid, name: p.name, q: p.q, online: on.has(pid), rank: rank.indexOf(pid) + 1 };
     });
     const f = this.finalView(s.final, true);
-    if (f) f.online = f.p.map(pid => on.has(pid));
+    if (f) f.online = f.p.map(pid => istCpu(pid) || on.has(pid));
     const klasse = s.phase === 'klasse' ? this.klasseView(true) : null;
     if (klasse) klasse.online = players.filter(p => p.online).length;
     return { t: 'room', code: s.code, phase: s.phase, cfg: s.cfg, quali: s.quali, players, now: this.io.now(), final: f, klasse };
