@@ -1,7 +1,7 @@
 // Ein Spiel allein auf dem Handy (Qualifying und Übungsseite).
 // Reihe: Karte für Karte einordnen, bis zum ersten Fehler (dann neuer Versuch mit neuen Karten).
 // Bedarf: Bedarfskarte für Bedarfskarte treffen, bis eine danebengeht (dann neuer Versuch).
-import { NW, reiheVersuch, richtigeLuecke, sortiert, bedarfRunde, bewerte, mitEinheit, wert } from './regeln.js';
+import { NW, reiheVersuch, richtigeLuecke, sortiert, bedarfRunde, bewerte, proHundert, wert } from './regeln.js';
 import { esc, LM, reiheEingabe, reiheAufloesung, lueckeText, bedarfKarte, handEingabe, bedarfAuswertung } from './karten.js';
 
 export class Solo {
@@ -49,7 +49,7 @@ export class Solo {
       this.ms += dt; this.lvl = this.k;
       this.reihe.push(neu);
       this.o.onLevel && this.o.onLevel({ v: this.v, lvl: this.lvl, acc: 0, ms: Math.round(this.ms) });
-      const wertText = this.o.stufe === 'offen' ? ` ${LM(neu).name}: ${mitEinheit(wert(LM(neu), nw), nw)}` : '';
+      const wertText = this.o.stufe === 'offen' ? ` ${LM(neu).name}: ${proHundert(wert(LM(neu), nw), nw)}` : '';
       this.rueck = `<div class="rueck ok">✓ Richtig!${esc(wertText)}</div>`;
       this.k++;
       if (this.k >= this.karten.length) return this.reiheFertig();
@@ -61,7 +61,7 @@ export class Solo {
     this.status(`Versuch ${this.v} <small>vorbei</small>`, 'Leider falsch', 'bad');
     this.o.el.innerHTML = `<div class="card bad aufl">
       <h2>Leider falsch!</h2>
-      <p><b>${esc(l.name)}</b> hat ${esc(mitEinheit(wert(l, nw), nw))} und gehört ${esc(lueckeText(sort, richtig, nw))}.</p>
+      <p><b>${esc(l.name)}</b> hat ${esc(proHundert(wert(l, nw), nw))} und gehört ${esc(lueckeText(sort, richtig, nw))}.</p>
       <p class="hint">Grün: richtiger Platz. Rot: dein Tipp. ${this.lvl ? `In diesem Versuch hattest du ${this.lvl} ${this.lvl === 1 ? 'Karte' : 'Karten'} richtig.` : ''}</p>
       <div class="reihebox klein">${reiheAufloesung(this.reihe, neu, nw, [{ gap, name: 'Dein Tipp' }])}</div>
       <button class="big-btn" id="btnNeu" disabled>Neuer Versuch</button>

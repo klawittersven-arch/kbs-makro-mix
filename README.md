@@ -150,6 +150,24 @@ Nach einer Änderung prüfen die Tests (`node --test tests/regeln.test.mjs`) die
 
 **Hinweise zu den Karten aus dem Kartenspiel**
 - Im gedruckten Deck sind 12 Lebensmittel doppelt, mit leicht anderen Werten (Gurke, Banane, Magerquark, Reis, Haferflocken, Ei, Hähnchen, Lachs, Avocado, Gouda, Mandeln, Butter). Im Spiel kommt jedes nur einmal vor, mit den Werten der Karten #01–#32. Es sind 52 Lebensmittel. Die Kartennummer steht in der Datei als `nr`.
+- Alle Werte gelten **je 100 g**, wie auf den gedruckten Karten. Im Spiel steht „je 100 g“ auf jeder Lebensmittelkarte und in jedem Satz mit einem Wert.
+- **Geprüft** wurden alle Werte gegen den Bundeslebensmittelschlüssel: *Max Rubner-Institut (2025): Bundeslebensmittelschlüssel (BLS), Version 4.0*, https://doi.org/10.25826/Data20251217-134202-0, Lizenz CC BY 4.0. **Kohlenhydrate** zählen ohne Ballaststoffe, wie auf deutschen Verpackungen.
+- **Angepasst** (Werte aus dem BLS 4.0, je 100 g: kcal / Fett / Kohlenhydrate / Eiweiß):
+
+| Karte | Lebensmittel | vorher (Karte) | jetzt (BLS) | Grund |
+|---|---|---|---|---|
+| #03 | Magerquark | 66 / 1,0 / 4,3 / 10,0 | 66 / 0,2 / 3,7 / 11,9 | 1 g Fett ist für Magerquark zu viel (entspricht Karte #45) |
+| #04 | Kidneybohnen, gekocht | 116 / 0,7 / 10,5 / 9,3 | 129 / 1,0 / 15,2 / 8,6 | Kohlenhydrate passten nicht zur Energie |
+| #21 | Linsen, gekocht | 116 / 0,4 / 20,1 / 9,0 | 119 / 0,7 / 15,5 / 9,1 | Kohlenhydrate mit Ballaststoffen gezählt |
+| #24 | Kichererbsen, gekocht | 164 / 2,6 / 27,4 / 8,9 | 151 / 3,0 / 17,4 / 8,4 | Kohlenhydrate mit Ballaststoffen gezählt |
+| #26 | Hummus | 166 / 9,6 / 14,3 / 7,9 | 324 / 28,5 / 8,0 / 5,9 | US-Produkt mit wenig Tahin/Öl; Kohlenhydrate mit Ballaststoffen |
+| #52 | Roggenbrot | 259 / 3,3 / 48,3 / 8,5 | 220 / 1,2 / 43,0 / 6,0 | Werte eines US-„rye bread“ (mit Weizen und Fett) |
+| #54 | Mozzarella | 280 / 17,0 / 3,0 / 18,0 | 259 / 21,0 / 0,0 / 17,1 | Energie passte nicht zu den Nährwerten |
+| #55 | Schwarze Bohnen, gekocht | 132 / 0,5 / 23,7 / 8,9 | 131 / 0,6 / 17,8 / 9,1 | Kohlenhydrate mit Ballaststoffen gezählt (BLS: Gartenbohne reif, gekocht) |
+| #60 | Kokosraspeln | 660 / 64,5 / 23,7 / 6,9 | 676 / 65,2 / 7,8 / 7,4 | Kohlenhydrate mit Ballaststoffen gezählt |
+| #61 | Brezel | 339 / 4,4 / 68,0 / 10,0 | 282 / 4,1 / 50,0 / 9,1 | Werte einer US-Soft-Pretzel statt Laugenbrezel |
+
+- **Nicht geändert**, obwohl der BLS etwas anderes angibt, weil die Werte natürlich schwanken: Lachs und Makrele (Fettgehalt je nach Zucht und Fangzeit), Avocado (Sorte, Reife), Tofu (Festigkeit), Couscous (Wassermenge beim Kochen), Datteln (Sorte), Thunfisch, Banane, Mandeln, Walnüsse.
 - Bei einigen Bedarfskarten endete der Text mit „… mit“ (z. B. „Frühstück mit“). Das „mit“ ist weggelassen, weil der Zielwert im Spiel separat angezeigt wird.
 
 ---

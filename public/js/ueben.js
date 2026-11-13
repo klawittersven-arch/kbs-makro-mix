@@ -96,6 +96,7 @@ function lexikon(nw) {
       <div class="settings">${seg('lex', NAEHRWERTE.map(n => [n, NW[n].name]), nw)}</div>
       <table class="lex"><thead><tr><th></th><th>Lebensmittel</th>${NAEHRWERTE.map(n => `<th class="${n === nw ? 'akt' : ''}">${n === 'kcal' ? 'kcal' : esc(NW[n].name.replace('Kohlenhydrate', 'KH'))}</th>`).join('')}</tr></thead>
       <tbody>${list.map(i => { const l = LEBENSMITTEL[i]; return `<tr><td class="lexbild">${bild(l.bild)}</td><td>${esc(l.name)}</td>${NAEHRWERTE.map(n => `<td class="zahl ${n === nw ? 'akt' : ''}">${zahl(l[n], n)}</td>`).join('')}</tr>`; }).join('')}</tbody></table>
+      <p class="hint">Kohlenhydrate ohne Ballaststoffe, wie auf deutschen Verpackungen. Werte von den Makro-Mix-Karten, geprüft mit dem Bundeslebensmittelschlüssel (Max Rubner-Institut, BLS 4.0, Lizenz CC BY 4.0); 10 Werte daraus übernommen.</p>
       <button class="big-btn" id="btnZurueck">Zurück</button>
     </div>
     <div class="card"><h3>Die Bedarfskarten</h3>

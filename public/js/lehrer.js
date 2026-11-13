@@ -847,7 +847,7 @@ function kBedarfAufl(L) {
     <div class="kstat">
       <div class="tcard"><h3>So habt ihr abgeschnitten (${L.anzahl} Abgaben)</h3>
         <div class="verteilung">${zeilen.map(([key, text, cls]) => `<div class="vz ${cls}"><span>${esc(text)}</span><i><b style="width:${Math.round(v[key] / ges * 100)}%"></b></i><em>${v[key]}</em></div>`).join('')}</div></div>
-      <div class="tcard"><h3>So oft gewählt <small>✓ = in der besten Kombination</small></h3>
+      <div class="tcard"><h3>So oft gewählt <small>Werte je 100 g · ✓ = in der besten Kombination</small></h3>
         <div class="haeufig">${haeufig.map(x => `<div class="hz ${x.best ? 'best' : ''}"><span class="lexbild">${bild(LM(x.i).bild)}</span><span class="hzn">${esc(LM(x.i).name)} <small>${esc(mitEinheit(wert(LM(x.i), nw), nw))}</small></span><i><b style="width:${Math.round(x.n / maxH * 100)}%"></b></i><em>${x.n}${x.best ? ' ✓' : ''}</em></div>`).join('')}</div></div>
     </div>
   </div>`;

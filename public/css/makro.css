@@ -511,3 +511,7 @@ body.beamer .chip{font-size:.72em}
 .names.viele{gap:.3em}
 .names.viele .name{font-size:.88em;padding:.15em .25em .15em .6em;gap:.25em}
 .names.viele .name .x{width:1.4em;height:1.4em}
+/* „je 100 g“ auf jeder Lebensmittelkarte (wie auf den gedruckten Karten) */
+.lmje{display:block;font-size:.68em;font-weight:600;color:#6a7591;letter-spacing:.02em;margin-top:.1em}
+.lm.neu .lmje,.hk.on .lmje{color:#3d6b5f}
+.pfeil small{font-size:.85em;opacity:.8;text-transform:none;letter-spacing:0}

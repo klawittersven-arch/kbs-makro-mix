@@ -19,12 +19,22 @@ test('inhalte.js: Lebensmittel vollständig und gültig', () => {
     assert.ok(typeof l.name === 'string' && l.name.trim(), 'Name fehlt bei ' + l.id);
     for (const nw of NAEHRWERTE) assert.ok(typeof l[nw] === 'number' && l[nw] >= 0 && l[nw] < 1000, `${l.name}: ${nw} ist keine Zahl`);
     assert.ok(ERLAUBTE_BILDER.includes(l.bild), `${l.name}: unbekanntes Bild „${l.bild}“`);
-    // Plausibel: Energie passt grob zu den Makronährstoffen (9 kcal/g Fett, 4 kcal/g KH und Eiweiß).
-    // Großzügig, weil z. B. Ballaststoffe auch Energie liefern – es geht nur um Tippfehler (Komma verrutscht o. Ä.).
+    // Plausibel: Energie passt zu den Makronährstoffen (9 kcal/g Fett, 4 kcal/g KH und Eiweiß).
+    // Kleine Abweichungen sind normal (Ballaststoffe liefern ca. 2 kcal/g, Zuckerarten etwas weniger als 4 kcal/g).
+    // Größere Abweichungen deuten auf einen Tippfehler hin (so fielen z. B. Mozzarella und Kidneybohnen auf).
     const kcal = 9 * l.fett + 4 * l.kh + 4 * l.eiweiss;
-    assert.ok(Math.abs(kcal - l.kcal) <= Math.max(50, l.kcal * 0.35), `${l.name}: ${l.kcal} kcal passt nicht zu den Nährwerten (≈ ${Math.round(kcal)})`);
+    assert.ok(Math.abs(kcal - l.kcal) <= Math.max(26, l.kcal * 0.13), `${l.name}: ${l.kcal} kcal passt nicht zu den Nährwerten (≈ ${Math.round(kcal)})`);
   }
   assert.equal(new Set(LEBENSMITTEL.map(l => l.name)).size, LEBENSMITTEL.length, 'kein Lebensmittel doppelt');
+  // Fett, Kohlenhydrate und Eiweiß zusammen können nicht mehr als 100 g (je 100 g Lebensmittel) sein
+  for (const l of LEBENSMITTEL) assert.ok(l.fett + l.kh + l.eiweiss <= 100.5, `${l.name}: mehr als 100 g Nährstoffe je 100 g`);
+});
+
+test('Die alten Kartenfehler würden auffallen (Tippfehler-Schutz)', () => {
+  const passt = (kcal, fett, kh, e) => Math.abs(9 * fett + 4 * kh + 4 * e - kcal) <= Math.max(26, kcal * 0.13);
+  assert.ok(!passt(280, 17, 3, 18), 'Mozzarella alt');
+  assert.ok(!passt(116, 0.7, 10.5, 9.3), 'Kidneybohnen alt');
+  assert.ok(passt(259, 21, 0, 17.1) && passt(129, 1, 15.2, 8.6), 'neue Werte');
 });
 
 test('inhalte.js: Bedarfskarten vollständig und gültig', () => {

@@ -2,7 +2,7 @@
 import { KNet, randomId, store } from './net.js';
 import { ART_TEXT, NW, NW_WAHL_TEXT, STUFE_TEXT, REIHE_LAENGE, GNADE, zeitLimit, bewerte, prozentText } from './regeln.js';
 import { $, esc, LM, BK, bedarfKarte, reiheEingabe, reiheAufloesung, reiheHtml, handEingabe, bedarfAuswertung, lmKarte, lueckeText, tipp, mmss } from './karten.js';
-import { sortiert, richtigeLuecke, mitEinheit, wert } from './regeln.js';
+import { sortiert, richtigeLuecke, proHundert, wert } from './regeln.js';
 import { Solo } from './solo.js';
 import { Ton } from './ton.js';
 import { spielfeldZeigen, status, zeitbalken, zeitbalkenZeigen, countdown, toast, wachHalten } from './ui.js';
@@ -352,7 +352,7 @@ function zwischenstand(f) {
     status(rundeText(f), ok ? 'Richtig ✓' : 'Alle lagen falsch', ok ? 'tippen' : 'beamer');
     const l = LM(L.neu);
     h = `<div class="card ${ok ? 'good' : ''}"><h2>${ok ? 'Richtig! ✓' : 'Falsch – aber alle lagen daneben'}</h2>
-      <p><b>${esc(l.name)}</b> hat ${esc(mitEinheit(wert(l, f.nw), f.nw))}.${ok ? '' : ' Darum bleiben alle im Spiel.'}</p>
+      <p><b>${esc(l.name)}</b> hat ${esc(proHundert(wert(l, f.nw), f.nw))}.${ok ? '' : ' Darum bleiben alle im Spiel.'}</p>
       <div class="reihebox klein">${reiheAufloesung(L.reihe, L.neu, f.nw, t ? [{ gap: t.gap, name: 'Du' }] : [])}</div></div>`;
   } else {
     const a = L.abgaben[f.slot], gewonnen = L.gewinner.includes(f.slot);
@@ -378,7 +378,7 @@ function finalAus(f) {
   show(key, `<div class="card bad"><p class="eyebrow">Finale${f.revanche ? ' · Revanche' : ''}</p>
       <h2>Ausgeschieden</h2>
       <div class="placebox">Platz ${me.place} <small>· bei Karte ${me.out}</small></div>
-      ${L && L.neu != null && t ? `<p><b>${esc(LM(L.neu).name)}</b> hat ${esc(mitEinheit(wert(LM(L.neu), f.nw), f.nw))} und gehört ${esc(lueckeText(sortiert(L.reihe, f.nw), richtigeLuecke(L.reihe, L.neu, f.nw), f.nw))}.</p>
+      ${L && L.neu != null && t ? `<p><b>${esc(LM(L.neu).name)}</b> hat ${esc(proHundert(wert(LM(L.neu), f.nw), f.nw))} und gehört ${esc(lueckeText(sortiert(L.reihe, f.nw), richtigeLuecke(L.reihe, L.neu, f.nw), f.nw))}.</p>
         ${t.gap < 0 ? '<p>Du hast nichts abgegeben (Zeit um oder Runde beendet).</p>' : ''}
         <div class="reihebox klein">${reiheAufloesung(L.reihe, L.neu, f.nw, [{ gap: t.gap, name: 'Du' }])}</div>` : ''}
       <p>Schau zum Beamer, wer gewinnt!</p></div>`);

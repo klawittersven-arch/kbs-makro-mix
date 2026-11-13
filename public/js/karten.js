@@ -23,7 +23,7 @@ export const nwChip = (nw, text) => `<span class="nwchip nw-${nw}"><i></i>${esc(
 export function lmKarte(i, o = {}) {
   const l = LM(i); if (!l) return '';
   const w = o.nw && o.zeigen ? `<span class="lmwert nw-${o.nw}">${esc(mitEinheit(wert(l, o.nw), o.nw))}</span>` : (o.nw && o.verdeckt ? '<span class="lmwert zu">?</span>' : '');
-  return `<div class="lm ${o.cls || ''}" data-lm="${esc(l.id)}"><span class="lmbild">${bild(l.bild)}</span><span class="lmname">${esc(l.name)}</span>${w}${o.extra || ''}</div>`;
+  return `<div class="lm ${o.cls || ''}" data-lm="${esc(l.id)}"><span class="lmbild">${bild(l.bild)}</span><span class="lmname">${esc(l.name)}<small class="lmje">je 100 g</small></span>${w}${o.extra || ''}</div>`;
 }
 // Große Karte: „Wohin gehört …?“
 export function lmGross(i, o = {}) {
@@ -60,7 +60,7 @@ export function reiheHtml(reiheIdx, nw, o = {}) {
     const inhalt = o.lueckeInhalt ? o.lueckeInhalt(g) : '';
     return `<button type="button" class="luecke ${o.gewaehlt === g ? 'gewaehlt' : ''} ${o.lueckeCls ? o.lueckeCls(g) : ''}" data-g="${g}" ${o.aktiv ? '' : 'tabindex="-1" disabled'} aria-label="${esc(lueckeText(sort, g, nw))}">${inhalt || (o.aktiv ? '<span class="plus">+</span>' : '')}</button>`;
   };
-  let h = `<div class="reihe ${o.aktiv ? 'aktiv' : ''} ${o.cls || ''}"><div class="pfeil oben">▲ ${esc(NW[nw].mehr)}</div>`;
+  let h = `<div class="reihe ${o.aktiv ? 'aktiv' : ''} ${o.cls || ''}"><div class="pfeil oben">▲ ${esc(NW[nw].mehr)} <small>(je 100 g)</small></div>`;
   for (let k = n; k >= 0; k--) {
     h += luecke(k);
     if (k > 0) {
@@ -182,7 +182,7 @@ export function kombiListe(pick, nw) {
   return `<div class="kombi">${pick.map(i => lmKarte(i, { nw, zeigen: true })).join('')}</div>`;
 }
 export function kombiText(pick, nw) {
-  return pick.map(i => LM(i).name).join(' + ') + ' = ' + zehntelText(summe(pick, nw), nw);
+  return 'Je 100 g ' + pick.map(i => LM(i).name).join(' + ') + ' = ' + zehntelText(summe(pick, nw), nw);
 }
 
 /**
@@ -209,7 +209,7 @@ export function bedarfAuswertung(bIdx, hand, pick, e, o = {}) {
   return `<div class="card ${cls} auswertung">
     <h2>${titel}</h2><p>${esc(satz)}</p>
     ${balken(e.sum, zielZ, { bereich: quali })}
-    <h3>Deine Auswahl</h3>${kombiListe(pick, nw)}
+    <h3>Deine Auswahl (je 100 g)</h3>${kombiListe(pick, nw)}
     <div class="beste ${bestGleich ? 'gleich' : ''}"><h3>${bestGleich ? 'Das war die beste Möglichkeit!' : 'Beste Möglichkeit mit diesen Karten'}</h3>
       ${bestGleich ? '' : `<p>${esc(kombiText(best.pick, nw))}</p>`}</div>
     ${o.extra || ''}

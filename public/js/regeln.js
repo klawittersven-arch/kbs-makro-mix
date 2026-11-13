@@ -68,6 +68,8 @@ export function zahl(v, nw) {
   return (Math.round(v * 10) / 10).toFixed(1).replace('.', ',');
 }
 export const mitEinheit = (v, nw) => zahl(v, nw) + ' ' + NW[nw].einheit;
+// Für Sätze: „30,6 g Fett je 100 g“ bzw. „191 kcal je 100 g“
+export const proHundert = (v, nw) => nw === 'kcal' ? `${zahl(v, nw)} kcal je 100 g` : `${zahl(v, nw)} g ${NW[nw].name} je 100 g`;
 export const prozentText = z => (Math.round(z / 10)) + ' %'; // z in Zehntel-Prozent
 
 // ---------------------------------------------------------------- Zufall

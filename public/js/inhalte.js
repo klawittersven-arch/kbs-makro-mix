@@ -20,14 +20,18 @@
 
 // ------------------------------------------------------------------
 // LEBENSMITTEL – Nährwerte je 100 g (aus den Makro-Mix-Karten)
-//   kcal = Energie, fett / kh (Kohlenhydrate) / eiweiss in Gramm
+//   kcal = Energie, fett / kh (Kohlenhydrate) / eiweiss in Gramm, alles je 100 g
+//   kh = verfügbare Kohlenhydrate OHNE Ballaststoffe (wie auf deutschen Verpackungen)
 //   nr = Nummer der gedruckten Karte (nur zur Orientierung)
+// Geprüft gegen den Bundeslebensmittelschlüssel: Max Rubner-Institut (2025), BLS Version 4.0,
+// https://doi.org/10.25826/Data20251217-134202-0 (Lizenz CC BY 4.0). Unplausible Kartenwerte
+// sind durch BLS-Werte ersetzt; der alte Kartenwert steht jeweils dahinter.
 // ------------------------------------------------------------------
 export const LEBENSMITTEL = [
   { id: 'gurke', nr: '01', name: 'Gurke', kcal: 9, fett: 0.0, kh: 1.3, eiweiss: 0.8, bild: 'gurke' },
   { id: 'banane', nr: '02', name: 'Banane', kcal: 88, fett: 0.2, kh: 19.7, eiweiss: 1.1, bild: 'banane' },
-  { id: 'magerquark', nr: '03', name: 'Magerquark', kcal: 66, fett: 1.0, kh: 4.3, eiweiss: 10.0, bild: 'becher' },
-  { id: 'kidneybohnen', nr: '04', name: 'Kidneybohnen, gekocht', kcal: 116, fett: 0.7, kh: 10.5, eiweiss: 9.3, bild: 'bohnen' },
+  { id: 'magerquark', nr: '03', name: 'Magerquark', kcal: 66, fett: 0.2, kh: 3.7, eiweiss: 11.9, bild: 'becher' }, // BLS 4.0 (vorher Karte #03: 66 kcal, 1,0 g Fett, 4,3 g KH, 10,0 g Eiweiß – zu viel Fett für Magerquark)
+  { id: 'kidneybohnen', nr: '04', name: 'Kidneybohnen, gekocht', kcal: 129, fett: 1.0, kh: 15.2, eiweiss: 8.6, bild: 'bohnen' }, // BLS 4.0 (vorher Karte #04: 116 kcal, 0,7 g Fett, 10,5 g KH, 9,3 g Eiweiß – KH passten nicht zur Energie)
   { id: 'reis', nr: '05', name: 'Reis, weiß, gekocht', kcal: 111, fett: 0.2, kh: 24.5, eiweiss: 2.5, bild: 'reis' },
   { id: 'vollkornbrot', nr: '06', name: 'Vollkornbrot', kcal: 232, fett: 1.3, kh: 42.0, eiweiss: 9.2, bild: 'brot' },
   { id: 'haferflocken', nr: '07', name: 'Haferflocken', kcal: 369, fett: 6.7, kh: 57.2, eiweiss: 14.1, bild: 'muesli' },
@@ -44,12 +48,12 @@ export const LEBENSMITTEL = [
   { id: 'apfel', nr: '18', name: 'Apfel', kcal: 52, fett: 0.2, kh: 13.8, eiweiss: 0.3, bild: 'apfel' },
   { id: 'naturjoghurt', nr: '19', name: 'Naturjoghurt, 3,5 %', kcal: 64, fett: 3.5, kh: 4.7, eiweiss: 3.5, bild: 'becher' },
   { id: 'mais', nr: '20', name: 'Mais, gekocht', kcal: 96, fett: 1.5, kh: 18.7, eiweiss: 3.4, bild: 'mais' },
-  { id: 'linsen', nr: '21', name: 'Linsen, gekocht', kcal: 116, fett: 0.4, kh: 20.1, eiweiss: 9.0, bild: 'bohnen' },
+  { id: 'linsen', nr: '21', name: 'Linsen, gekocht', kcal: 119, fett: 0.7, kh: 15.5, eiweiss: 9.1, bild: 'bohnen' }, // BLS 4.0 (vorher Karte #21: 116 kcal, 0,4 g Fett, 20,1 g KH, 9,0 g Eiweiß – KH mit Ballaststoffen gezählt)
   { id: 'tofu', nr: '22', name: 'Tofu, natur', kcal: 144, fett: 8.7, kh: 2.3, eiweiss: 15.7, bild: 'tofu' },
   { id: 'nudeln', nr: '23', name: 'Nudeln, gekocht', kcal: 157, fett: 0.9, kh: 30.0, eiweiss: 5.8, bild: 'nudeln' },
-  { id: 'kichererbsen', nr: '24', name: 'Kichererbsen, gekocht', kcal: 164, fett: 2.6, kh: 27.4, eiweiss: 8.9, bild: 'bohnen' },
+  { id: 'kichererbsen', nr: '24', name: 'Kichererbsen, gekocht', kcal: 151, fett: 3.0, kh: 17.4, eiweiss: 8.4, bild: 'bohnen' }, // BLS 4.0 (vorher Karte #24: 164 kcal, 2,6 g Fett, 27,4 g KH, 8,9 g Eiweiß – KH mit Ballaststoffen gezählt)
   { id: 'thunfisch', nr: '25', name: 'Thunfisch, im eigenen Saft', kcal: 116, fett: 1.0, kh: 0.0, eiweiss: 26.0, bild: 'dose' },
-  { id: 'hummus', nr: '26', name: 'Hummus', kcal: 166, fett: 9.6, kh: 14.3, eiweiss: 7.9, bild: 'hummus' },
+  { id: 'hummus', nr: '26', name: 'Hummus', kcal: 324, fett: 28.5, kh: 8.0, eiweiss: 5.9, bild: 'hummus' }, // BLS 4.0 (vorher Karte #26: 166 kcal, 9,6 g Fett, 14,3 g KH, 7,9 g Eiweiß – US-Produkt, KH mit Ballaststoffen)
   { id: 'schokolade', nr: '27', name: 'Vollmilchschokolade', kcal: 535, fett: 30.0, kh: 59.4, eiweiss: 7.3, bild: 'schokolade' },
   { id: 'muesli', nr: '28', name: 'Müsli', kcal: 372, fett: 7.0, kh: 64.0, eiweiss: 10.0, bild: 'muesli' },
   { id: 'erdnussbutter', nr: '29', name: 'Erdnussbutter', kcal: 588, fett: 49.0, kh: 12.0, eiweiss: 25.0, bild: 'erdnussbutter' },
@@ -64,15 +68,15 @@ export const LEBENSMITTEL = [
   { id: 'paprika', nr: '49', name: 'Paprika, rot', kcal: 31, fett: 0.3, kh: 6.0, eiweiss: 1.0, bild: 'paprika' },
   { id: 'weintrauben', nr: '50', name: 'Weintrauben', kcal: 69, fett: 0.2, kh: 18.1, eiweiss: 0.7, bild: 'trauben' },
   { id: 'couscous', nr: '51', name: 'Couscous, gekocht', kcal: 112, fett: 0.2, kh: 23.2, eiweiss: 3.8, bild: 'reis' },
-  { id: 'roggenbrot', nr: '52', name: 'Roggenbrot', kcal: 259, fett: 3.3, kh: 48.3, eiweiss: 8.5, bild: 'brot' },
+  { id: 'roggenbrot', nr: '52', name: 'Roggenbrot', kcal: 220, fett: 1.2, kh: 43.0, eiweiss: 6.0, bild: 'brot' }, // BLS 4.0 (vorher Karte #52: 259 kcal, 3,3 g Fett, 48,3 g KH, 8,5 g Eiweiß – US-„rye bread“ statt deutsches Roggenbrot)
   { id: 'skyr', nr: '53', name: 'Skyr, natur', kcal: 63, fett: 0.2, kh: 3.9, eiweiss: 11.0, bild: 'becher' },
-  { id: 'mozzarella', nr: '54', name: 'Mozzarella', kcal: 280, fett: 17.0, kh: 3.0, eiweiss: 18.0, bild: 'mozzarella' },
-  { id: 'schwarzebohnen', nr: '55', name: 'Schwarze Bohnen, gekocht', kcal: 132, fett: 0.5, kh: 23.7, eiweiss: 8.9, bild: 'bohnen' },
+  { id: 'mozzarella', nr: '54', name: 'Mozzarella', kcal: 259, fett: 21.0, kh: 0.0, eiweiss: 17.1, bild: 'mozzarella' }, // BLS 4.0 (vorher Karte #54: 280 kcal, 17,0 g Fett, 3,0 g KH, 18,0 g Eiweiß – Energie passte nicht zu den Nährwerten)
+  { id: 'schwarzebohnen', nr: '55', name: 'Schwarze Bohnen, gekocht', kcal: 131, fett: 0.6, kh: 17.8, eiweiss: 9.1, bild: 'bohnen' }, // BLS 4.0 (vorher Karte #55: 132 kcal, 0,5 g Fett, 23,7 g KH, 8,9 g Eiweiß – KH mit Ballaststoffen gezählt)
   { id: 'makrele', nr: '56', name: 'Makrele', kcal: 205, fett: 13.9, kh: 0.0, eiweiss: 18.6, bild: 'fisch' },
   { id: 'cashewkerne', nr: '58', name: 'Cashewkerne', kcal: 553, fett: 43.9, kh: 30.2, eiweiss: 18.2, bild: 'nuss' },
   { id: 'datteln', nr: '59', name: 'Datteln, getrocknet', kcal: 277, fett: 0.2, kh: 75.0, eiweiss: 1.8, bild: 'datteln' },
-  { id: 'kokosraspeln', nr: '60', name: 'Kokosraspeln', kcal: 660, fett: 64.5, kh: 23.7, eiweiss: 6.9, bild: 'kokos' },
-  { id: 'brezel', nr: '61', name: 'Brezel', kcal: 339, fett: 4.4, kh: 68.0, eiweiss: 10.0, bild: 'brezel' },
+  { id: 'kokosraspeln', nr: '60', name: 'Kokosraspeln', kcal: 676, fett: 65.2, kh: 7.8, eiweiss: 7.4, bild: 'kokos' }, // BLS 4.0 (vorher Karte #60: 660 kcal, 64,5 g Fett, 23,7 g KH, 6,9 g Eiweiß – KH mit Ballaststoffen gezählt)
+  { id: 'brezel', nr: '61', name: 'Brezel', kcal: 282, fett: 4.1, kh: 50.0, eiweiss: 9.1, bild: 'brezel' }, // BLS 4.0 (vorher Karte #61: 339 kcal, 4,4 g Fett, 68,0 g KH, 10,0 g Eiweiß – US-Soft-Pretzel statt Laugenbrezel)
   { id: 'mascarpone', nr: '62', name: 'Mascarpone', kcal: 429, fett: 42.0, kh: 4.0, eiweiss: 5.5, bild: 'becher' },
   { id: 'harzer', nr: '63', name: 'Harzer Käse', kcal: 126, fett: 0.1, kh: 0.7, eiweiss: 30.0, bild: 'kaese' },
   { id: 'honig', nr: '64', name: 'Honig', kcal: 304, fett: 0.0, kh: 82.4, eiweiss: 0.3, bild: 'honig' },
