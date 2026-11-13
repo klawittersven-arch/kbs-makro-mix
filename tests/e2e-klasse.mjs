@@ -128,7 +128,7 @@ try {
   await shot(sara.p, '55-handy-klasse-zweifel-sicher');
   await sara.p.click('#btnZweifel');
   await Promise.all([lena, tom, aylin, max, jonas].map(ph => reiheZug(ph.p, 2, 'gut')));
-  await T.waitForFunction(() => (document.querySelector('.aufltitel') || {}).textContent.startsWith('Zu Recht gezweifelt'), null, { timeout: 10000 });
+  await T.waitForFunction(() => (document.querySelector('.aufltitel')?.textContent || '').startsWith('Zu Recht gezweifelt'), null, { timeout: 10000 });
   await sleep(500);
   await shot(T, '56-beamer-klasse-aufgedeckt');
   await sara.p.waitForFunction(() => document.body.textContent.includes('Zu Recht gezweifelt'), null, { timeout: 5000 });
@@ -141,7 +141,7 @@ try {
   await Promise.all(alle.map(ph => reiheZug(ph.p, 3, 'gut')));
   // Runde 4: Max zweifelt zu Unrecht
   await Promise.all([reiheZug(max.p, 4, 'zweifel'), ...[lena, tom, aylin, sara, jonas].map(ph => reiheZug(ph.p, 4, 'gut'))]);
-  await T.waitForFunction(() => (document.querySelector('.aufltitel') || {}).textContent.startsWith('Die Reihe war richtig'), null, { timeout: 10000 });
+  await T.waitForFunction(() => (document.querySelector('.aufltitel')?.textContent || '').startsWith('Die Reihe war richtig'), null, { timeout: 10000 });
   log('Runde 4: zu Unrecht gezweifelt ✓');
   // Pause während der Auflösung, dann weiter
   await T.keyboard.press(' ');

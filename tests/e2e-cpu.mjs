@@ -55,6 +55,8 @@ async function reiheZug(p, richtig) {
   const gap = richtig ? korrekt : (korrekt === 0 ? 1 : korrekt - 1);
   await p.click(`.einordnen .luecke[data-g="${gap}"]`);
   await p.click('#btnEin');
+  // erst weiter, wenn die Abgabe angekommen ist (sonst liest die Schleife noch den alten Knopf)
+  await p.waitForSelector('.einordnen #btnEin', { state: 'hidden', timeout: 10000 }).catch(() => {});
   return { neu: neu.name, gap, korrekt };
 }
 // Bedarf: Bedarfskarte und Hand vom Bildschirm lesen; 'best' = beste Kombination, 'viel' = zu viel / nicht geschafft

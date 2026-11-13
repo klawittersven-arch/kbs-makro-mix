@@ -2,14 +2,14 @@
 // Prüft auch die Datei inhalte.js – nach einer Änderung dort zeigt dieser Test Tippfehler sofort an.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { LEBENSMITTEL, BEDARFSKARTEN, ABSTAND, TREFFER_PROZENT, TIPPS } from '../public/js/inhalte.js';
+import { LEBENSMITTEL, BEDARFSKARTEN, ABSTAND, TREFFER_PROZENT, MINDEST_KARTEN, TIPPS } from '../public/js/inhalte.js';
 import {
   NAEHRWERTE, NW, REIHE_LAENGE, HAND, MAX_AUSWAHL, deutlich, kette, richtigeLuecke, reiheVersuch, nwFuer, sortiert,
   besteKombi, hand, bedarfRunde, bedarfFinalRunde, bedarfsStapel, sauberePick, bewerte, zielZehntel, untergrenze,
-  vergleichQuali, zahl, mitEinheit, wert, zeitLimit,
+  vergleichQuali, zahl, mitEinheit, wert, zeitLimit, mindestKarten,
 } from '../public/js/regeln.js';
 
-const ERLAUBTE_BILDER = 'gurke banane apfel paprika trauben avocado kartoffel mais brot weissbrot brezel croissant reiswaffel reis nudeln muesli ei haehnchen fisch dose kaese mozzarella becher bohnen hummus tofu nuss erdnussbutter honig schokolade riegel butter oel salami datteln kokos chips teller'.split(' ');
+const ERLAUBTE_BILDER = 'gurke banane apfel paprika trauben avocado kartoffel mais brot weissbrot brezel croissant reiswaffel reis nudeln muesli ei haehnchen fisch dose kaese mozzarella becher bohnen hummus tofu nuss erdnussbutter honig schokolade riegel butter oel salami datteln kokos chips teller pueree brei milchreis fischstaebchen pizza pommes leberwurst frikadelle'.split(' ');
 
 test('inhalte.js: Lebensmittel vollständig und gültig', () => {
   assert.ok(LEBENSMITTEL.length >= 20, 'mindestens 20 Lebensmittel');
@@ -114,9 +114,27 @@ test('Bedarf: Jede Hand ist lösbar (Treffer-Bereich erreichbar)', () => {
   }
 });
 
+test('Bedarf: Eine Karte allein reicht nie (MINDEST_KARTEN)', () => {
+  assert.ok(Number.isInteger(MINDEST_KARTEN) && MINDEST_KARTEN >= 1 && MINDEST_KARTEN <= MAX_AUSWAHL, 'MINDEST_KARTEN muss 1 bis 5 sein');
+  assert.equal(mindestKarten(), MINDEST_KARTEN);
+  let mitEinzel = 0, n = 0;
+  for (let seed = 1; seed <= 60; seed++) {
+    for (let b = 0; b < BEDARFSKARTEN.length; b++) {
+      const B = BEDARFSKARTEN[b], h = hand(seed * 7919 + b, b);
+      const einzel = besteKombi(h, B.wert, zielZehntel(B), MINDEST_KARTEN - 1);
+      n++;
+      if (MINDEST_KARTEN > 1 && einzel.sum >= untergrenze(B)) mitEinzel++;
+      // trotzdem immer lösbar
+      const best = besteKombi(h, B.wert, zielZehntel(B));
+      assert.ok(best.sum >= untergrenze(B) && best.pick.length >= MINDEST_KARTEN, `${B.id} Startwert ${seed}`);
+    }
+  }
+  assert.equal(mitEinzel, 0, `${mitEinzel} von ${n} Händen sind mit weniger als ${MINDEST_KARTEN} Karten lösbar`);
+});
+
 test('Bedarf: beste Kombination und Bewertung', () => {
   const idx = id => LEBENSMITTEL.findIndex(l => l.id === id);
-  const h = ['apfel', 'banane', 'nudeln', 'butter', 'olivenoel', 'gurke', 'reis', 'ei', 'skyr', 'honig'].map(idx);
+  const h = ['apfel', 'banane', 'nudeln', 'butter', 'olivenoel', 'gurke', 'reis', 'ei', 'magerquark', 'honig'].map(idx);
   const b500 = BEDARFSKARTEN.findIndex(b => b.ziel === 500 && b.wert === 'kcal');
   const best = besteKombi(h, 'kcal', 5000);
   assert.ok(best.sum <= 5000 && best.sum >= 4610, 'nahe an 500 kcal: ' + best.sum);

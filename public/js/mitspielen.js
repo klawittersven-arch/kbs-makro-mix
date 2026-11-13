@@ -2,7 +2,7 @@
 import { KNet, randomId, store } from './net.js';
 import { ART_TEXT, NW, NW_WAHL_TEXT, STUFE_TEXT, REIHE_LAENGE, GNADE, zeitLimit, bewerte, prozentText } from './regeln.js';
 import { $, esc, LM, BK, bedarfKarte, reiheEingabe, reiheAufloesung, reiheHtml, handEingabe, bedarfAuswertung, lmKarte, lueckeText, tipp, mmss } from './karten.js';
-import { sortiert, richtigeLuecke, proHundert, wert } from './regeln.js';
+import { sortiert, richtigeLuecke, proHundert, wert, kombiHinweis } from './regeln.js';
 import { Solo } from './solo.js';
 import { Ton } from './ton.js';
 import { spielfeldZeigen, status, zeitbalken, zeitbalkenZeigen, countdown, toast, wachHalten } from './ui.js';
@@ -64,7 +64,7 @@ function show(key, html, after) {
 }
 const tippKarte = () => `<div class="card tipp"><h3>💡 Wusstest du?</h3><p>${esc(tipp())}</p></div>`;
 function spielErklaerung(art, nw, stufe) {
-  if (art === 'bedarf') return `<b>Bedarf:</b> Auf der Bedarfskarte steht eine Person und ein Zielwert (${esc(NW_WAHL_TEXT[nw] || '')}). Wähle aus 10 Lebensmitteln bis zu 5 aus (je 100 g). Komm so nah wie möglich an den Zielwert – aber nicht drüber!`;
+  if (art === 'bedarf') return `<b>Bedarf:</b> Auf der Bedarfskarte steht eine Person und ein Zielwert (${esc(NW_WAHL_TEXT[nw] || '')}). Wähle aus 10 Lebensmitteln bis zu 5 aus (je 100 g). Komm so nah wie möglich an den Zielwert – aber nicht drüber!${kombiHinweis() ? ' ' + kombiHinweis() : ''}`;
   return `<b>Reihe:</b> Ordne Lebensmittel nach ${nw === 'mix' ? 'dem Nährwert' : esc(NW[nw] ? NW[nw].name : '')} (je 100 g). Oben steht mehr, unten weniger. Tippe auf die Lücke, in die die neue Karte gehört.${stufe === 'verdeckt' ? ' Die Werte bleiben verdeckt.' : ''}`;
 }
 
@@ -500,7 +500,7 @@ function kZwischen(k) {
     h = `<div class="card"><p class="eyebrow">Klassenrunde</p><h2>Alle spielen mit!</h2>${k.art === 'reihe'
       ? `<p>Jede Runde kommt eine neue Karte. Du kannst sie <b>einordnen</b> oder <b>zweifeln</b>, wenn du glaubst, dass in der Reihe schon ein Fehler steckt.</p>
          <p>Die Karte kommt dorthin, wo die <b>Mehrheit</b> sie hinlegt. Die Werte bleiben verdeckt, bis jemand zweifelt oder die Reihe voll ist.</p>`
-      : `<p>Jede Runde kommt eine Bedarfskarte. Wähle bis zu 5 Lebensmittel und komm dem Zielwert so nah wie möglich, ohne ihn zu überschreiten.</p>`}</div>`;
+      : `<p>Jede Runde kommt eine Bedarfskarte. Wähle bis zu 5 Lebensmittel und komm dem Zielwert so nah wie möglich, ohne ihn zu überschreiten. ${kombiHinweis()}</p>`}</div>`;
   } else if (k.art === 'reihe') {
     status(`Runde ${L.runde} <small>von ${k.runden} · Auflösung</small>`, punkteText(me.p), 'beamer');
     let txt = '', cls = '';

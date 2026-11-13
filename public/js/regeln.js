@@ -2,7 +2,7 @@
  * Spielregeln, Zeiten und Zufall. Diese Datei lesen Handys, Beamer UND der Cloudflare-Dienst.
  * Die Inhalte (Lebensmittel, Bedarfskarten) stehen in inhalte.js.
  */
-import { LEBENSMITTEL, BEDARFSKARTEN, ABSTAND, TREFFER_PROZENT } from './inhalte.js';
+import { LEBENSMITTEL, BEDARFSKARTEN, ABSTAND, TREFFER_PROZENT, MINDEST_KARTEN } from './inhalte.js';
 
 export const SPIELARTEN = ['reihe', 'bedarf'];
 export const ART_TEXT = {
@@ -168,18 +168,29 @@ export function bedarfsStapel(seed, nwWahl) {
   const idx = BEDARFSKARTEN.map((_, i) => i).filter(i => nwWahl === 'mix' || BEDARFSKARTEN[i].wert === nwWahl);
   return mische(idx.length ? idx : BEDARFSKARTEN.map((_, i) => i), rng(mischSeed(seed, 2)));
 }
-// 10 Handkarten, mit denen der Zielwert (mindestens TREFFER_PROZENT, höchstens 100 %) erreichbar ist
+// Mindestens so viele Karten braucht man (aus inhalte.js, abgesichert gegen Tippfehler: 1 … MAX_AUSWAHL)
+export const mindestKarten = () => Math.min(MAX_AUSWAHL, Math.max(1, Math.round(Number(MINDEST_KARTEN)) || 1));
+// Satz für die Spielerklärung (leer, wenn schon eine Karte reichen darf)
+export const kombiHinweis = () => {
+  const m = mindestKarten();
+  return m === 1 ? '' : m === 2 ? 'Eine Karte allein reicht nie.' : `Weniger als ${m} Karten reichen nie.`;
+};
+// 10 Handkarten, mit denen der Zielwert (mindestens TREFFER_PROZENT, höchstens 100 %) erreichbar ist –
+// aber nicht schon mit weniger als mindestKarten() Karten (sonst wäre die Runde mit einem Tipp gelöst)
 export function hand(seed, bIdx) {
-  const b = BEDARFSKARTEN[bIdx], zielZ = zielZehntel(b), unten = untergrenze(b);
+  const b = BEDARFSKARTEN[bIdx], zielZ = zielZehntel(b), unten = untergrenze(b), mind = mindestKarten();
   const r = rng(mischSeed(seed, 3));
-  let h = [];
+  let h = [], ersatz = null;
   for (let versuch = 0; versuch < 400; versuch++) {
     h = mische(LEBENSMITTEL.map((_, k) => k), r).slice(0, HAND);
     const best = besteKombi(h, b.wert, zielZ);
     // lösbar: Die beste Auswahl liegt im Treffer-Bereich
-    if (best.pick.length && best.sum >= unten) return h;
+    if (!best.pick.length || best.sum < unten) continue;
+    // zu leicht: Schon weniger Karten treffen den Bereich
+    if (mind > 1 && besteKombi(h, b.wert, zielZ, mind - 1).sum >= unten) { ersatz = ersatz || h; continue; }
+    return h;
   }
-  return h;
+  return ersatz || h;
 }
 // Runde i (ab 0) im v-ten Versuch des Qualifyings
 export function bedarfRunde(seed, v, i, nwWahl) {

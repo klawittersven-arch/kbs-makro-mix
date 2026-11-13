@@ -9,7 +9,7 @@ import {
   $, esc, LM, BK, fmtMs, mmss, tipp, lmKarte, lmGross, bedarfKarte, reiheHtml, reiheAufloesung, kombiListe, kombiText, balken,
   zielText, zehntelText, nwChip,
 } from './karten.js';
-import { zielZehntel } from './regeln.js';
+import { zielZehntel, kombiHinweis } from './regeln.js';
 import { TREFFER_PROZENT } from './inhalte.js';
 import { Ton } from './ton.js';
 import { bild } from './bilder.js';
@@ -221,7 +221,7 @@ function quali() {
     const min = Math.round((Q.endAt - Q.startAt) / 60000);
     const was = Q.art === 'reihe'
       ? `Jede Karte richtig eingeordnet zählt. Es zählt der beste Versuch, bei Gleichstand die kürzere Bedenkzeit.`
-      : `Eine Bedarfskarte ist geschafft, wenn die Summe zwischen ${TREFFER_PROZENT} und 100 % des Zielwerts liegt. Es zählt die längste Serie, bei Gleichstand die höhere Trefferquote (Ø).`;
+      : `Eine Bedarfskarte ist geschafft, wenn die Summe zwischen ${TREFFER_PROZENT} und 100 % des Zielwerts liegt. Es zählt die längste Serie, bei Gleichstand die höhere Trefferquote (Ø). ${kombiHinweis()}`;
     view.innerHTML = `<div class="tpage">
       <div class="qhead">
         <div class="tcard"><div class="thead"><div><h2>Qualifying</h2><p>${esc(artNw(Q.art, Q.nw, Q.stufe))} · alle gleichzeitig auf dem Handy · ${min} Minuten</p></div></div>
@@ -736,7 +736,7 @@ function kBuehne(k) {
          <p>Die Karte kommt dorthin, wo die <b>Mehrheit</b> sie hinlegt – auch wenn das falsch ist. Die Werte bleiben verdeckt.</p>
          <p>Wer glaubt, dass in der Reihe ein Fehler steckt, <b>zweifelt</b>. Dann wird aufgedeckt: Fehler gefunden = <b>+${PUNKTE.zweifelRichtig}</b>, Reihe war richtig = <b>${PUNKTE.zweifelFalsch}</b>. Danach beginnt eine neue Reihe.</p>
          <p>Jede richtig eingeordnete Karte bringt <b>+${PUNKTE.richtig}</b> – gutgeschrieben, wenn die Reihe aufgedeckt wird.</p>`
-      : `<p>Jede Runde kommt eine Bedarfskarte. Alle bekommen dieselben 10 Lebensmittel und wählen bis zu 5 aus.</p>
+      : `<p>Jede Runde kommt eine Bedarfskarte. Alle bekommen dieselben 10 Lebensmittel und wählen bis zu 5 aus. ${kombiHinweis()}</p>
          <p>Beste mögliche Kombination = <b>${PUNKTE.beste} Punkte</b>, mindestens 90 % des Zielwerts = <b>${PUNKTE.gut}</b>, mindestens ${TREFFER_PROZENT} % = <b>${PUNKTE.ok}</b>. Wer den Zielwert überschreitet, bekommt nichts.</p>`}</div>`;
     if (k.first && !k.paused) for (let s = 3; s >= 1; s--) kat(() => { bigCount(s, 'Alle schauen aufs eigene Handy!'); Ton.piep(false); }, k.startAt - s * 1000);
   } else if (phase === 'aufl') {

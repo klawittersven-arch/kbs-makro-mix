@@ -104,6 +104,7 @@ Im Finale lässt sich in jeder Auswahlliste statt einer Person ein **🤖 CPU-Ge
 
 **Bedarf**
 - Bedarfskarte plus 10 Lebensmittel (je 100 g), bis zu 5 auswählen. Die Werte sind beim Auswählen verdeckt (wie am Tisch). Es gibt immer eine Kombination, die den Zielwert trifft.
+- **Eine Karte allein reicht nie:** Die 10 Lebensmittel werden so gemischt, dass man mindestens 2 kombinieren muss. Vorher hätte in mehr als der Hälfte der Runden ein einziges Lebensmittel schon 80–100 % geschafft. Einstellbar in `inhalte.js` unter `MINDEST_KARTEN` (1 = wie am Tisch, auch eine Karte darf reichen).
 - **Qualifying:** Eine Bedarfskarte ist geschafft, wenn die Summe **zwischen 80 und 100 %** des Zielwerts liegt. Dann kommt die nächste Bedarfskarte. Zu viel oder zu wenig beendet den Versuch. Es zählt die **längste Serie**, bei Gleichstand die höhere Trefferquote (Ø, wie nah man im Schnitt am Zielwert war), dann die kürzere Bedenkzeit.
 - **Finale (wie am Tisch):** Alle bekommen dieselbe Bedarfskarte und dieselben 10 Lebensmittel. Wer am nächsten am Zielwert liegt, ohne ihn zu überschreiten, bekommt die Bedarfskarte. Bei Gleichstand bekommen alle Gleichstehenden eine (statt Schere-Stein-Papier). Wer zuerst 3 (bzw. 5) Karten hat **und allein vorn liegt**, gewinnt, sonst geht es weiter.
 
@@ -142,6 +143,7 @@ Alle Inhalte stehen in **`public/js/inhalte.js`**. Auf GitHub die Datei öffnen,
 - **`BEDARFSKARTEN`:** Name, Alter (bestimmt das Personenbild: Kind, Jugendliche/r, Erwachsene/r, ältere Person), kurzer Text, Nährwert (`kcal`, `fett`, `kh` oder `eiweiss`) und Zielwert.
 - **`ABSTAND`:** Wie deutlich sich zwei Werte unterscheiden müssen, damit sie zusammen in eine Reihe dürfen.
 - **`TREFFER_PROZENT`:** Ab wie viel Prozent des Zielwerts eine Bedarfskarte im Qualifying als geschafft gilt (voreingestellt 80).
+- **`MINDEST_KARTEN`:** Wie viele Lebensmittel man bei *Bedarf* mindestens kombinieren muss (voreingestellt 2, also: eine Karte allein reicht nie).
 - **`TIPPS`:** die „Wusstest du?“-Sätze.
 
 Die Punkte der Klassenrunde stehen in `public/js/regeln.js` unter `PUNKTE` (z. B. `zweifelRichtig: 3`) und lassen sich dort genauso ändern.
@@ -150,6 +152,7 @@ Nach einer Änderung prüfen die Tests (`node --test tests/regeln.test.mjs`) die
 
 **Hinweise zu den Karten aus dem Kartenspiel**
 - Im gedruckten Deck sind 12 Lebensmittel doppelt, mit leicht anderen Werten (Gurke, Banane, Magerquark, Reis, Haferflocken, Ei, Hähnchen, Lachs, Avocado, Gouda, Mandeln, Butter). Im Spiel kommt jedes nur einmal vor, mit den Werten der Karten #01–#32. Es sind 52 Lebensmittel. Die Kartennummer steht in der Datei als `nr`.
+- **8 Karten getauscht** (siehe unten): Das Spiel hat 44 Lebensmittel aus dem gedruckten Deck und 8 neue (#65–#72).
 - Alle Werte gelten **je 100 g**, wie auf den gedruckten Karten. Im Spiel steht „je 100 g“ auf jeder Lebensmittelkarte und in jedem Satz mit einem Wert.
 - **Geprüft** wurden alle Werte gegen den Bundeslebensmittelschlüssel: *Max Rubner-Institut (2025): Bundeslebensmittelschlüssel (BLS), Version 4.0*, https://doi.org/10.25826/Data20251217-134202-0, Lizenz CC BY 4.0. **Kohlenhydrate** zählen ohne Ballaststoffe, wie auf deutschen Verpackungen.
 - **Angepasst** (Werte aus dem BLS 4.0, je 100 g: kcal / Fett / Kohlenhydrate / Eiweiß):
@@ -157,17 +160,44 @@ Nach einer Änderung prüfen die Tests (`node --test tests/regeln.test.mjs`) die
 | Karte | Lebensmittel | vorher (Karte) | jetzt (BLS) | Grund |
 |---|---|---|---|---|
 | #03 | Magerquark | 66 / 1,0 / 4,3 / 10,0 | 66 / 0,2 / 3,7 / 11,9 | 1 g Fett ist für Magerquark zu viel (entspricht Karte #45) |
-| #04 | Kidneybohnen, gekocht | 116 / 0,7 / 10,5 / 9,3 | 129 / 1,0 / 15,2 / 8,6 | Kohlenhydrate passten nicht zur Energie |
+| #04 | Kidneybohnen, gekocht | 116 / 0,7 / 10,5 / 9,3 | 129 / 1,0 / 15,2 / 8,6 | Kohlenhydrate passten nicht zur Energie (Karte ist nicht mehr im Spiel) |
 | #21 | Linsen, gekocht | 116 / 0,4 / 20,1 / 9,0 | 119 / 0,7 / 15,5 / 9,1 | Kohlenhydrate mit Ballaststoffen gezählt |
 | #24 | Kichererbsen, gekocht | 164 / 2,6 / 27,4 / 8,9 | 151 / 3,0 / 17,4 / 8,4 | Kohlenhydrate mit Ballaststoffen gezählt |
 | #26 | Hummus | 166 / 9,6 / 14,3 / 7,9 | 324 / 28,5 / 8,0 / 5,9 | US-Produkt mit wenig Tahin/Öl; Kohlenhydrate mit Ballaststoffen |
 | #52 | Roggenbrot | 259 / 3,3 / 48,3 / 8,5 | 220 / 1,2 / 43,0 / 6,0 | Werte eines US-„rye bread“ (mit Weizen und Fett) |
 | #54 | Mozzarella | 280 / 17,0 / 3,0 / 18,0 | 259 / 21,0 / 0,0 / 17,1 | Energie passte nicht zu den Nährwerten |
-| #55 | Schwarze Bohnen, gekocht | 132 / 0,5 / 23,7 / 8,9 | 131 / 0,6 / 17,8 / 9,1 | Kohlenhydrate mit Ballaststoffen gezählt (BLS: Gartenbohne reif, gekocht) |
-| #60 | Kokosraspeln | 660 / 64,5 / 23,7 / 6,9 | 676 / 65,2 / 7,8 / 7,4 | Kohlenhydrate mit Ballaststoffen gezählt |
+| #55 | Schwarze Bohnen, gekocht | 132 / 0,5 / 23,7 / 8,9 | 131 / 0,6 / 17,8 / 9,1 | Kohlenhydrate mit Ballaststoffen gezählt (BLS: Gartenbohne reif, gekocht) (Karte ist nicht mehr im Spiel) |
+| #60 | Kokosraspeln | 660 / 64,5 / 23,7 / 6,9 | 676 / 65,2 / 7,8 / 7,4 | Kohlenhydrate mit Ballaststoffen gezählt (Karte ist nicht mehr im Spiel) |
 | #61 | Brezel | 339 / 4,4 / 68,0 / 10,0 | 282 / 4,1 / 50,0 / 9,1 | Werte einer US-Soft-Pretzel statt Laugenbrezel |
 
-- **Nicht geändert**, obwohl der BLS etwas anderes angibt, weil die Werte natürlich schwanken: Lachs und Makrele (Fettgehalt je nach Zucht und Fangzeit), Avocado (Sorte, Reife), Tofu (Festigkeit), Couscous (Wassermenge beim Kochen), Datteln (Sorte), Thunfisch, Banane, Mandeln, Walnüsse.
+- **Nicht geändert**, obwohl der BLS etwas anderes angibt, weil die Werte natürlich schwanken: Lachs (Fettgehalt je nach Zucht und Fangzeit), Avocado (Sorte, Reife), Tofu (Festigkeit), Datteln (Sorte), Thunfisch, Banane, Mandeln, Walnüsse.
+
+**Geänderte Kartenauswahl (für ein abwechslungsreicheres Spiel)**
+
+Eine Simulation mit vielen tausend Runden hat gezeigt: Das gedruckte Deck hat viele Karten mit fast 0 g Fett (18) oder fast 0 g Kohlenhydraten (13), aber nur 2 gemischte Lebensmittel mit mittleren Werten. Mit der Faustregel „Obst/Getreide = Kohlenhydrate, Fleisch/Fisch = Eiweiß, Öl = Fett“ ließ sich vieles ordnen, ohne die Werte zu kennen. Außerdem gab es fast doppelte Karten, die nie zusammen in eine Reihe dürfen.
+
+| Herausgenommen | Grund |
+|---|---|
+| #32 Margarine | fast wie Butter |
+| #53 Skyr | fast wie Magerquark |
+| #51 Couscous | fast wie Reis |
+| #04 Kidneybohnen, #55 Schwarze Bohnen | 4 Hülsenfrüchte waren zu viel; Linsen und Kichererbsen bleiben |
+| #56 Makrele | fast wie Lachs |
+| #63 Harzer Käse | bei Energie und Eiweiß wie Hähnchen |
+| #60 Kokosraspeln | fast wie Walnüsse; bei *Bedarf* nie verwendbar |
+
+| Neu (nicht gedruckt) | kcal / Fett / KH / Eiweiß je 100 g | BLS 4.0 | Warum |
+|---|---|---|---|
+| #65 Kartoffelpüree, mit Milch | 88 / 3,0 / 12,4 / 2,4 | X634012 | Kost im Krankenhaus und Pflegeheim |
+| #66 Haferbrei, mit Milch | 134 / 4,9 / 15,0 / 6,3 | X9A2100 | Frühstück, leicht zu essen |
+| #67 Milchreis | 140 / 3,2 / 22,4 / 4,9 | X810033 | Süßspeise in der Heimkost |
+| #68 Fischstäbchen, aus dem Ofen | 206 / 9,3 / 16,3 / 13,8 | T930162 | Die Panade bringt Kohlenhydrate |
+| #69 Pizza Margherita | 238 / 13,6 / 20,0 / 7,8 | X912033 | Alltagsessen, alles gemischt |
+| #70 Pommes, aus dem Ofen | 167 / 4,3 / 27,4 / 3,0 | K130262 | Frittiert wären es 9 g Fett |
+| #71 Leberwurst | 236 / 18,1 / 0,6 / 17,6 | W327000 | Verstecktes Fett auf dem Brot |
+| #72 Frikadelle | 269 / 19,5 / 4,5 / 18,7 | Y036122 | Typisches Mittagessen |
+
+Ergebnis der Simulation: 9 statt 2 gemischte Lebensmittel; Karten, die bei einem Nährwert kaum in eine Reihe kommen: 22 statt 37; bei *Bedarf* nie verwendbar: 10 statt 14. Die längste mögliche Reihe hat bei jedem Nährwert weiterhin mindestens 16 Karten (nötig sind 13). Wer die neuen Karten auch am Tisch spielen möchte, druckt sie nach; die alten Karten bleiben in der Datei-Geschichte auf GitHub erhalten.
 - Bei einigen Bedarfskarten endete der Text mit „… mit“ (z. B. „Frühstück mit“). Das „mit“ ist weggelassen, weil der Zielwert im Spiel separat angezeigt wird.
 
 ---

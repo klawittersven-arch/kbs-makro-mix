@@ -456,6 +456,107 @@ export const BILDER = {
       schuessel('#d9483a', '#5a1410');
   })(),
 
+  // Kartoffelpüree: Schüssel mit hellgelbem Püree-Berg, Rillen und einem Stück Butter
+  pueree: (() => {
+    const L = '#8a6a1c';
+    return shape('M12 51 C12 36 28 24 50 24 C72 24 88 36 88 51 Z', '#f6e3a4', L) +
+      line('M22 44 C30 38 40 40 46 36 M56 32 C62 30 70 34 74 40 M30 48 C40 44 52 46 60 42 M64 47 C70 45 76 46 80 48', '#d8b55a', 2.2) +
+      shape('M40 30 L54 26 L62 32 L48 37 Z', '#ffd94a', '#a8820c', 1.8) +
+      shape('M48 37 L62 32 L62 35 C60 38 56 40 52 40 C50 40 48 39 48 37 Z', '#f4c22a', '#a8820c', 1.6) +
+      glanz('M43 30 L52 27.5 L50 29.5 L44 31 Z', 0.7) +
+      schuessel('#8e66c8', '#3e2470');
+  })(),
+
+  // Haferbrei: grüne Schüssel mit cremigem Brei, Haferflocken, Bananenscheiben und Löffel
+  brei: (() => {
+    const L = '#8a6a30';
+    return tube('M58 42 L84 8', 4, '#c9d1dd', '#5a6478') +
+      shape('M10 50 C14 38 32 33 50 33 C68 33 86 38 90 50 Z', '#efdcb4', L) +
+      stempel('M-4 0 Q0 -3 4 0 Q0 3 -4 0 Z', [[28, 44, -20], [40, 40, 15], [70, 44, 25], [34, 47, 30], [62, 47, -15], [22, 48, 10], [78, 48, -10]], 'fill="#d4a556" stroke="#8a6a30" stroke-width="1"') +
+      kreis(48, 43, 5.5, '#fbeec0', '#a88a3a', 1.6) + kreis(48, 43, 1.6, '#d8c070') +
+      kreis(57, 40, 5, '#fbeec0', '#a88a3a', 1.6) + kreis(57, 40, 1.5, '#d8c070') +
+      oval(64, 42, 7, 3.2, '#c9d1dd', '#5a6478', 1.8, -10) +
+      schuessel('#5aa05a', '#1f4a1c');
+  })(),
+
+  // Milchreis: rosa Schüssel mit weißem Reis, Zimt und Kirschen
+  milchreis: (() => {
+    const K = '#6a1020';
+    return shape('M14 51 C14 33 30 23 50 23 C70 23 86 33 86 51 Z', '#fffbf2', '#8a806a') +
+      line('M28 42 l4 -1 M38 34 l4 1 M58 33 l4 2 M70 42 l4 -1 M44 45 l4 1 M24 48 l4 -1 M60 46 l4 -1 M50 38 l3 -1', '#ded3b8', 2.6) +
+      punkte('#a8622a', '33,40 42,30 63,38 72,46 54,44 30,47 47,49 66,30', 1.3) +
+      line('M44 22 C44 14 48 10 54 8 M58 24 C58 16 56 12 54 8', '#3f7a2a', 1.8) +
+      kreis(43, 27, 6, '#d9304a', K, 1.8) + kreis(59, 28, 6, '#c8263e', K, 1.8) +
+      kreis(41, 25, 1.8, '#fff', null) + kreis(57, 26, 1.8, '#fff', null) +
+      schuessel('#e47aa0', '#7a1e44');
+  })(),
+
+  // Fischstäbchen: drei panierte Stäbchen (eins angeschnitten) und ein Stück Zitrone
+  fischstaebchen: (() => {
+    const L = '#7a4a0c', P = '#e8a23c';
+    const stab = (x, y, r) => `<g transform="rotate(${r} ${x} ${y})">` +
+      shape(`M${x - 30} ${y - 8} L${x + 30} ${y - 8} C${x + 33} ${y - 8} ${x + 33} ${y + 8} ${x + 30} ${y + 8} L${x - 30} ${y + 8} C${x - 33} ${y + 8} ${x - 33} ${y - 8} ${x - 30} ${y - 8} Z`, P, L) +
+      punkte('#c47a1e', `${x - 22},${y - 3} ${x - 10},${y + 3} ${x + 2},${y - 3} ${x + 14},${y + 3} ${x + 24},${y - 3} ${x - 16},${y + 4} ${x + 8},${y + 4}`, 1.3) +
+      punkte('#f8cf78', `${x - 26},${y + 2} ${x - 4},${y - 4} ${x + 20},${y - 2} ${x + 10},${y - 4}`, 1.3) + '</g>';
+    return stab(46, 28, -12) + stab(50, 50, -12) +
+      '<g transform="rotate(-12 48 72)">' +
+      shape('M18 64 L66 64 L66 80 L18 80 C15 80 15 64 18 64 Z', P, L) +
+      punkte('#c47a1e', '24,68 34,75 44,68 54,75 30,77 50,69', 1.3) +
+      shape('M66 64 L72 64 C75 64 75 80 72 80 L66 80 Z', '#fbf6ea', L, 2) +
+      line('M68 68 L71 68 M68 72 L72 72 M68 76 L71 76', '#d8cdb4', 1.2) + '</g>' +
+      shape('M78 74 C78 62 88 56 96 60 L82 80 C79 79 78 77 78 74 Z', '#f6dc3a', '#8a7a0c', 2) +
+      line('M82 80 L90 62 M82 80 L94 68', '#fff3a0', 1.4);
+  })(),
+
+  // Pizza Margherita: ganze Pizza von oben mit Tomate, Mozzarella und Basilikum
+  pizza: (() => {
+    const L = '#7a4410', G = '#1f4a1c';
+    const blatt = (x, y, r) => `<g transform="rotate(${r} ${x} ${y})">` + shape(`M${x - 7} ${y} C${x - 3} ${y - 6} ${x + 3} ${y - 6} ${x + 7} ${y} C${x + 3} ${y + 6} ${x - 3} ${y + 6} ${x - 7} ${y} Z`, '#3f9a3a', G, 1.4) + line(`M${x - 6} ${y} L${x + 6} ${y}`, G, 1, 0.7) + '</g>';
+    return kreis(50, 52, 42, '#e3a95c', L) + kreis(50, 52, 33, '#d9443a', '#9a2418', 2) +
+      line('M50 19 L50 85 M21.4 35.5 L78.6 68.5 M21.4 68.5 L78.6 35.5', '#b8602a', 1.6, 0.8) +
+      oval(38, 38, 8, 6, '#fffaf0', '#c8bca8', 1.4) + oval(64, 40, 7, 6, '#fffaf0', '#c8bca8', 1.4) +
+      oval(34, 62, 7, 6, '#fffaf0', '#c8bca8', 1.4) + oval(60, 66, 8, 6, '#fffaf0', '#c8bca8', 1.4) + oval(50, 52, 6, 5, '#fffaf0', '#c8bca8', 1.4) +
+      blatt(48, 34, 20) + blatt(70, 54, -40) + blatt(42, 70, 30) + blatt(26, 48, 70) +
+      line('M24 30 C30 22 40 16 50 15', '#f6d49a', 2.6, 0.7);
+  })(),
+
+  // Pommes: rote Tüte mit weißem Streifen, gelbe Stäbchen ragen heraus
+  pommes: (() => {
+    const L = '#8a5a0c', F = '#f6c844';
+    const stab = ([x, y, r, h]) => `<g transform="rotate(${r} ${x} ${y})">` + shape(`M${x - 3.5} ${y} L${x - 3.5} ${y - h} L${x + 3.5} ${y - h} L${x + 3.5} ${y} Z`, F, L, 1.8) + '</g>';
+    return [[30, 50, -14, 36], [40, 50, -6, 44], [50, 50, 2, 40], [60, 50, 8, 46], [70, 50, 16, 34], [35, 52, 4, 30], [55, 52, -4, 34], [65, 52, -10, 26], [45, 52, 10, 26]].map(stab).join('') +
+      shape('M20 40 L80 40 L70 92 L30 92 Z', '#d9483a', '#5a1410') +
+      shape('M22.5 52 L77.5 52 L76 60 L24 60 Z', '#fff', 'none', 0) +
+      line('M27 56 L35 56 M43 56 L57 56 M65 56 L73 56', '#d9483a', 2.4) +
+      glanz('M26 44 L31 44 L36 88 L33 88 Z', 0.3);
+  })(),
+
+  // Leberwurst: hellrosa Wurst mit Metallklammern und eine bestrichene Brotscheibe
+  leberwurst: (() => {
+    const L = '#5a2e22';
+    return '<g transform="rotate(-28 46 34)">' +
+      shape('M18 22 L74 22 C84 22 84 46 74 46 L18 46 C8 46 8 22 18 22 Z', '#d9a28a', L) +
+      shape('M4 30 L12 28 L12 40 L4 38 Z', '#b8c0cc', '#4a5262', 1.8) + shape('M80 28 L88 30 L88 38 L80 40 Z', '#b8c0cc', '#4a5262', 1.8) +
+      line('M22 28 C40 26 58 26 74 28', '#f2c8b6', 3, 0.8) + '</g>' +
+      shape('M40 60 C40 52 46 48 52 50 C56 46 64 46 68 50 C74 48 82 52 82 60 L82 90 L40 90 Z', '#a8682e', '#4a2408') +
+      shape('M45 62 C45 57 49 55 53 57 C57 53 63 53 66 57 C70 55 77 57 77 62 L77 85 L45 85 Z', '#e8c896', '#a8682e', 1.6) +
+      shape('M47 63 C50 58 55 60 59 57 C64 55 70 58 75 62 L75 80 C70 83 64 78 58 82 C53 85 50 80 47 82 Z', '#c9907a', '#8a5240', 1.6) +
+      punkte('#a86a56', '52,67 60,64 68,68 56,74 70,75 63,72', 1.2);
+  })(),
+
+  // Frikadelle: zwei gebratene Fleischpflanzerl auf einem Teller, mit Senf
+  frikadelle: (() => {
+    const L = '#3e1a08';
+    const fri = (x, y, rx, ry) => shape(`M${x - rx} ${y} C${x - rx} ${y + ry + 4} ${x + rx} ${y + ry + 4} ${x + rx} ${y} Z`, '#6a3412', L) +
+      oval(x, y, rx, ry, '#9a5426', L) +
+      line(`M${x - rx * 0.6} ${y - ry * 0.2} l6 -2 M${x - rx * 0.1} ${y + ry * 0.4} l5 2 M${x + rx * 0.3} ${y - ry * 0.4} l6 1 M${x - rx * 0.4} ${y + ry * 0.6} l4 -2 M${x + rx * 0.5} ${y + ry * 0.3} l3 -3`, '#5a2a0e', 2) +
+      punkte('#c8844a', `${x - rx * 0.5},${y + ry * 0.1} ${x + rx * 0.1},${y - ry * 0.5} ${x + rx * 0.6},${y - ry * 0.1} ${x},${y + ry * 0.2}`, 1.4) +
+      glanz(`M${x - rx * 0.8} ${y - ry * 0.2} C${x - rx * 0.6} ${y - ry * 0.8} ${x - rx * 0.1} ${y - ry} ${x + rx * 0.3} ${y - ry * 0.9} C${x - rx * 0.1} ${y - ry * 0.6} ${x - rx * 0.5} ${y - ry * 0.4} ${x - rx * 0.7} ${y} Z`, 0.25);
+    return oval(50, 72, 47, 19, '#e6edf5', D) + oval(50, 70, 35, 11, '#fff') +
+      fri(64, 44, 25, 14) + fri(35, 58, 26, 15) +
+      shape('M74 76 C78 70 88 70 90 76 C88 82 78 82 74 76 Z', '#f0c020', '#8a6a0c', 1.8);
+  })(),
+
   // Teller mit Gabel und Messer (auch Ersatzbild für unbekannte Namen)
   teller: (() => {
     const G = '#5a6478', F = '#c9d1dd';
