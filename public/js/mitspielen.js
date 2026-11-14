@@ -1,8 +1,8 @@
 // Handy-Seite der SuS: anmelden, Qualifying allein spielen, Klassenrunde und Finale mitspielen (Auflösung am Beamer)
 import { KNet, randomId, store } from './net.js';
 import { ART_TEXT, NW, NW_WAHL_TEXT, STUFE_TEXT, REIHE_LAENGE, GNADE, zeitLimit, bewerte, prozentText } from './regeln.js';
-import { $, esc, LM, BK, bedarfKarte, reiheEingabe, reiheAufloesung, reiheHtml, handEingabe, bedarfAuswertung, lmKarte, lueckeText, tipp, mmss } from './karten.js';
-import { sortiert, richtigeLuecke, proHundert, wert, kombiHinweis } from './regeln.js';
+import { $, esc, LM, BK, bedarfKarte, reiheEingabe, reiheAufloesung, reiheHtml, handEingabe, bedarfAuswertung, lmKarte, lueckeText, tipp, mmss, waageZiel, waageEingabe, waageVergleich, waageTabelle } from './karten.js';
+import { sortiert, richtigeLuecke, proHundert, wert, kombiHinweis, klasseN, waageWerte, PUNKTE } from './regeln.js';
 import { Solo } from './solo.js';
 import { Ton } from './ton.js';
 import { spielfeldZeigen, status, zeitbalken, zeitbalkenZeigen, countdown, toast, wachHalten } from './ui.js';
@@ -64,6 +64,7 @@ function show(key, html, after) {
 }
 const tippKarte = () => `<div class="card tipp"><h3>💡 Wusstest du?</h3><p>${esc(tipp())}</p></div>`;
 function spielErklaerung(art, nw, stufe) {
+  if (art === 'waage') return `<b>Waage:</b> Am Beamer stehen die Zielwerte einer Mahlzeit: Kalorien, Fett, Kohlenhydrate und Eiweiß. Stelle mit den Schiebereglern ein, wie viel Gramm du von jedem Lebensmittel nimmst – so, dass alle vier Werte möglichst genau passen.${stufe === 'verdeckt' ? ' Die Nährwerte der Lebensmittel bleiben verdeckt.' : ''}`;
   if (art === 'bedarf') return `<b>Bedarf:</b> Auf der Bedarfskarte steht eine Person und ein Zielwert (${esc(NW_WAHL_TEXT[nw] || '')}). Wähle aus 10 Lebensmitteln bis zu 5 aus (je 100 g). Komm so nah wie möglich an den Zielwert – aber nicht drüber!${kombiHinweis() ? ' ' + kombiHinweis() : ''}`;
   return `<b>Reihe:</b> Ordne Lebensmittel nach ${nw === 'mix' ? 'dem Nährwert' : esc(NW[nw] ? NW[nw].name : '')} (je 100 g). Oben steht mehr, unten weniger. Tippe auf die Lücke, in die die neue Karte gehört.${stufe === 'verdeckt' ? ' Die Werte bleiben verdeckt.' : ''}`;
 }
@@ -460,6 +461,16 @@ function kEingabe(k, titel) {
       onAbgabe: gap => ab({ t: 'k-reihe', gap }),
       onZweifel: () => ab({ t: 'k-reihe', zweifel: true }),
     });
+  } else if (k.art === 'waage') {
+    status(titel, punkteText(k.me.p), 'tippen');
+    el.innerHTML = `<div class="waagespiel">${waageZiel(k.w.ziel, { cls: 'klein', titel: 'Ziel', kurz: true })}<div id="waageBox"></div></div>`;
+    K.eingabe = waageEingabe($('#waageBox'), { w: k.w, zeigen: k.stufe === 'offen', onAbgabe: g => ab({ t: 'k-waage', g }) });
+    // Zeit um: Was eingestellt ist, wird automatisch abgegeben (kurz vor Ablauf, damit es sicher ankommt)
+    if (k.deadline) klater(() => {
+      if (!K || !K.eingabe || K.abgabeRunde === k.runde) return;
+      const g = K.eingabe.g; K.eingabe.sperren();
+      ab({ t: 'k-waage', g, auto: true });
+    }, k.deadline - 400);
   } else {
     status(titel, punkteText(k.me.p), 'tippen');
     el.innerHTML = `<div class="bedarfspiel">${bedarfKarte(k.b, { cls: 'klein' })}<div id="handBox"></div></div>`;
@@ -467,7 +478,7 @@ function kEingabe(k, titel) {
   }
   if (navigator.vibrate) try { navigator.vibrate(40); } catch (e) {}
   if (k.deadline) {
-    const limit = zeitLimit(k.art, k.art === 'reihe' ? k.reihe.length : 0, k.zeit);
+    const limit = zeitLimit(k.art, klasseN(k), k.zeit);
     zeitbalkenZeigen(true);
     const tick = () => {
       if (!K) return;
@@ -497,7 +508,10 @@ function kZwischen(k) {
   const stand = `<div class="card"><div class="bigstat"><b>${me.p}</b><span>${me.p === 1 ? 'Punkt' : 'Punkte'} · Platz ${me.platz} von ${me.von}</span></div></div>`;
   if (!L) {
     status(`Runde ${k.runde} <small>von ${k.runden} · Klassenrunde</small>`, 'Gleich geht’s los!', 'beamer');
-    h = `<div class="card"><p class="eyebrow">Klassenrunde</p><h2>Alle spielen mit!</h2>${k.art === 'reihe'
+    h = `<div class="card"><p class="eyebrow">Klassenrunde</p><h2>Alle spielen mit!</h2>${k.art === 'waage'
+      ? `<p>Jede Runde steht am Beamer eine Mahlzeit mit vier Zielwerten. Stelle mit den Schiebereglern ein, wie viel Gramm du von jedem Lebensmittel nimmst.</p>
+         <p>Je genauer alle vier Werte passen, desto mehr Punkte: fast genau = <b>${PUNKTE.waageMax} Punkte</b>. ${k.deadline ? 'Wenn die Zeit um ist, wird abgegeben, was eingestellt ist.' : ''}</p>`
+      : k.art === 'reihe'
       ? `<p>Jede Runde kommt eine neue Karte. Du kannst sie <b>einordnen</b> oder <b>zweifeln</b>, wenn du glaubst, dass in der Reihe schon ein Fehler steckt.</p>
          <p>Die Karte kommt dorthin, wo die <b>Mehrheit</b> sie hinlegt. Die Werte bleiben verdeckt, bis jemand zweifelt oder die Reihe voll ist.</p>`
       : `<p>Jede Runde kommt eine Bedarfskarte. Wähle bis zu 5 Lebensmittel und komm dem Zielwert so nah wie möglich, ohne ihn zu überschreiten. ${kombiHinweis()}</p>`}</div>`;
@@ -517,6 +531,17 @@ function kZwischen(k) {
         <p class="hint">Rot markierte Karten liegen falsch herum. Jetzt beginnt eine neue Reihe.</p></div>`;
     } else {
       h = `<div class="card"><h2>Die Mehrheit hat entschieden</h2>${txt}<p class="hint">Ob die Reihe stimmt, siehst du erst, wenn jemand zweifelt oder die Reihe voll ist. Schau zum Beamer!</p></div>`;
+    }
+  } else if (k.art === 'waage') {
+    status(`Runde ${L.runde} <small>von ${k.runden} · Auflösung</small>`, punkteText(me.p), 'beamer');
+    if (!z) h = `<div class="card"><h2>Keine Abgabe</h2><p>Du hast in dieser Runde nichts abgegeben.</p><h3>So wäre es genau gegangen</h3>${waageTabelle(L.w, [{ titel: 'Lösung', g: L.w.rezept, cls: 'loesung' }], { zeigen: true })}</div>`;
+    else {
+      const werte = waageWerte(L.w.lm, z.g), genau = Math.max(0, 100 - Math.round(z.abw / 10));
+      h = `<div class="card ${z.plus >= 7 ? 'good' : ''}"><h2>${z.plus > 0 ? '+' + z.plus : '0'} ${z.plus === 1 ? 'Punkt' : 'Punkte'}</h2>
+        <p>Deine Mahlzeit trifft die Zielwerte zu <b>${genau} %</b>.${z.auto ? ' Die Zeit war um – abgegeben wurde, was eingestellt war.' : ''}</p>
+        ${waageVergleich(L.w.ziel, werte)}
+        <h3>Deine Grammzahlen und die Lösung</h3>
+        ${waageTabelle(L.w, [{ titel: 'Du', g: z.g }, { titel: 'Lösung', g: L.w.rezept, cls: 'loesung' }], { zeigen: true })}</div>`;
     }
   } else {
     status(`Runde ${L.runde} <small>von ${k.runden} · Auflösung</small>`, punkteText(me.p), 'beamer');
@@ -542,7 +567,7 @@ function klasseEnde(k) {
       <h2>${me.platz === 1 ? '🏆 Du hast gewonnen!' : `Platz ${me.platz} von ${me.von}`}</h2>
       <div class="bigstat"><b>${me.p}</b><span>${me.p === 1 ? 'Punkt' : 'Punkte'}</span></div>
       <ol class="stand">${k.top.map(x => `<li><b>${1 + k.top.filter(y => y.p > x.p).length}. ${esc(x.name)}</b><span>${punkteText(x.p)}</span></li>`).join('')}</ol>
-      <p>Schau zum Beamer: Vielleicht geht es gleich mit dem Finale weiter.</p></div>${tippKarte()}`);
+      <p>${k.art === 'waage' ? 'Schau zum Beamer!' : 'Schau zum Beamer: Vielleicht geht es gleich mit dem Finale weiter.'}</p></div>${tippKarte()}`);
 }
 
 // ---------------------------------------------------------------- Start

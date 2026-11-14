@@ -1,16 +1,17 @@
 # KBS Makro-Mix
 
-Ein Klassenspiel zu Nährwerten und Makronährstoffen, nach dem Kartenspiel „Makro-Mix“ aus dem Unterricht. Zwei Spielarten:
+Ein Klassenspiel zu Nährwerten und Makronährstoffen, nach dem Kartenspiel „Makro-Mix“ aus dem Unterricht. Drei Spielarten:
 
 - **Reihe:** Lebensmittel nach Kalorien, Fett, Kohlenhydraten oder Eiweiß ordnen. Wo gehört die neue Karte in die Reihe?
 - **Bedarf:** Eine Bedarfskarte nennt eine Person und einen Zielwert. Aus 10 Lebensmitteln bis zu 5 auswählen und dem Zielwert so nah wie möglich kommen, ohne ihn zu überschreiten.
+- **Waage** (nur als Klassenrunde): Am Beamer stehen die Zielwerte einer Mahlzeit (kcal, Fett, Kohlenhydrate, Eiweiß). Auf dem Handy stellt man mit Schiebereglern ein, wie viel Gramm man von 1 bis 3 Lebensmitteln nimmt. Je genauer, desto mehr Punkte.
 
 Zwei Arten zu spielen, beide mit der ganzen Klasse (bis 30 SuS und mehr) gleichzeitig:
 
 - **Klassenrunde:** Alle spielen Runde für Runde gleichzeitig dieselbe Karte bzw. Bedarfskarte. Die Auflösung kommt nach jeder Runde am Beamer, mit Punkte-Rangliste.
 - **Qualifying + Finale:** Erst spielen alle allein auf dem Handy (mit Live-Rangliste am Beamer), dann spielen die Besten das Finale.
 
-Nach einer Klassenrunde kann es auch direkt mit dem Finale weitergehen.
+Nach einer Klassenrunde *Reihe* oder *Bedarf* kann es auch direkt mit dem Finale weitergehen.
 
 | Seite | Adresse | Für wen |
 |---|---|---|
@@ -48,7 +49,7 @@ Genauso wie bei KBS Simon says, KBS-Kart, Tetris und der Spielewahl:
 1. **Lehrer-Link am Laptop öffnen**, Beamer und Lautsprecher an, **F** für Vollbild. Oben rechts steht der Code der Sitzung.
 2. **Anmeldung:** Die SuS scannen den QR-Code und geben Vornamen und den ersten Buchstaben des Nachnamens ein (z. B. „Lena K.“). Die Namen erscheinen am Beamer. Mit **×** entfernst du unpassende Namen.
 3. **Einstellungen** (unter den Namen, bleiben gespeichert):
-   - **Spielart:** Reihe oder Bedarf.
+   - **Spielart:** Reihe, Bedarf oder Waage (Waage nur als Klassenrunde, mit eigenen Einstellungen, siehe [Waage](#waage-als-klassenrunde)).
    - **Nährwert:** Kalorien, Fett, Kohlenhydrate, Eiweiß oder Gemischt. Bei *Reihe* wird danach geordnet (Gemischt: jeder Versuch mit einem anderen Nährwert, im Finale wird einer ausgelost). Bei *Bedarf* kommen nur Bedarfskarten mit diesem Nährwert vor (Gemischt: alle 32).
    - **Schwierigkeit** (nur Reihe): *Einfach*: Die Werte der Karten in der Reihe sind sichtbar, geschätzt wird nur die neue Karte. *Schwer*: Alle Werte bleiben verdeckt wie am Tisch, aufgedeckt wird erst bei der Auflösung.
    - **Qualifying:** dauert 2, 3 oder 5 Minuten (voreingestellt: 3 Minuten).
@@ -79,6 +80,21 @@ Die ganze Klasse spielt gleichzeitig, Runde für Runde. Am Beamer stehen die Kar
 - Alle bekommen dieselbe Bedarfskarte und dieselben 10 Lebensmittel. So lässt sich die Lösung am Beamer gemeinsam besprechen.
 - Punkte: **3** für die beste mögliche Kombination, **2** für mindestens 90 % des Zielwerts, **1** für mindestens 80 %, **0** bei zu wenig oder zu viel.
 - Am Beamer: beste Kombination, wie viele wie viele Punkte bekommen haben und welche Lebensmittel wie oft gewählt wurden.
+
+#### Waage als Klassenrunde
+
+Die Waage gibt es nur als Klassenrunde (ohne Qualifying und Finale). Wer *Waage* wählt, sieht eigene Einstellungen:
+- **Lebensmittel:** 1, 2 oder 3 pro Mahlzeit (voreingestellt: 2). Mit 1 Lebensmittel lautet die Frage: „Wie viel Gramm sind es?“ Das ist ein leichter Einstieg. Mit 3 Lebensmitteln wird es schwer.
+- **Schwierigkeit:** *Einfach*: Die Nährwerte je 100 g stehen bei den Lebensmitteln, man muss rechnen. *Schwer*: Die Werte bleiben verdeckt, man muss sie wissen oder schätzen. Aufgedeckt wird bei der Auflösung.
+- **Zeitlimit:** sehr großzügig, 1 Minute bei 1 Lebensmittel, 1,5 Minuten bei 2, 2 Minuten bei 3. Ist die Zeit um, wird automatisch abgegeben, was auf dem Handy eingestellt ist.
+- **Klassenrunde:** 5, 8 oder 10 Runden (voreingestellt: 5).
+
+So läuft eine Runde:
+- Am Beamer stehen groß die **vier Zielwerte** der Mahlzeit und die Lebensmittel. Die Zielwerte stammen aus einem versteckten Rezept (z. B. 150 g Fischstäbchen + 100 g Kichererbsen + 200 g Pommes). Darum lassen sie sich immer genau treffen. Das Spiel wählt Lebensmittel, die sich deutlich unterscheiden (z. B. eins fettreich, eins eiweißreich), sonst gäbe es viele fast gleich gute Lösungen. Ganz energiearme Lebensmittel (Gurke, Paprika) kommen nicht vor, und nach Möglichkeit kommen in jeder Runde andere Lebensmittel.
+- Auf dem Handy hat jedes Lebensmittel einen **Schieberegler** (in Schritten von 10 g, bei sehr energiereichen Lebensmitteln wie Öl oder Butter 5 g) und Knöpfe für **−** und **+** (gedrückt halten = schnell). Die Summe der eigenen Mahlzeit sieht man erst nach der Runde, sonst könnte man so lange schieben, bis es passt. Mit **Fertig** wird abgegeben.
+- **Punkte:** Verglichen werden alle vier Werte. Weniger als 5 % daneben = **10 Punkte**, je weitere 5 % Abweichung ein Punkt weniger, nie unter 0. Bei kleinen Zielwerten zählt die Abweichung mindestens gegenüber 100 kcal bzw. 10 g (sonst wären 2 g statt 1 g Fett schon „100 % daneben“).
+- **Auflösung am Beamer:** die Lösung mit allen Werten je 100 g, daneben der **Klassenschnitt** (Durchschnitt eurer Grammzahlen) und **wer wie viele Punkte** bekommen hat. Auf dem Handy: eigene Werte gegen Zielwerte, wie genau die Mahlzeit war (in %), eigene Grammzahlen und die Lösung.
+- Nach der Waage geht es nicht ins Finale. Am Ende: **Noch eine Klassenrunde** (K) oder **Neues Spiel** (Esc).
 
 **Rangliste:** mehr Punkte vorn. Bei Gleichstand teilen sich die Personen den Platz. Für die Reihenfolge innerhalb eines Platzes und für die Auswahl fürs Finale zählen dann mehr richtige Abgaben, danach die kürzere Bedenkzeit.
 
@@ -118,7 +134,7 @@ Im Finale lässt sich in jeder Auswahlliste statt einer Person ein **🤖 CPU-Ge
 
 | Taste | Funktion |
 |---|---|
-| Enter | Qualifying starten / beenden, Finale starten, Revanche, nach der Klassenrunde: weiter zum Finale |
+| Enter | Qualifying starten / beenden, Finale starten, Revanche, nach der Klassenrunde (Reihe, Bedarf): weiter zum Finale |
 | K | Klassenrunde starten (auch: noch eine Klassenrunde) |
 | Leertaste | Finale und Klassenrunde: anhalten (nach der Runde) / weiter |
 | Esc | Neues Spiel (zurück zur Anmeldung) |
@@ -146,7 +162,7 @@ Alle Inhalte stehen in **`public/js/inhalte.js`**. Auf GitHub die Datei öffnen,
 - **`MINDEST_KARTEN`:** Wie viele Lebensmittel man bei *Bedarf* mindestens kombinieren muss (voreingestellt 2, also: eine Karte allein reicht nie).
 - **`TIPPS`:** die „Wusstest du?“-Sätze.
 
-Die Punkte der Klassenrunde stehen in `public/js/regeln.js` unter `PUNKTE` (z. B. `zweifelRichtig: 3`) und lassen sich dort genauso ändern.
+Die Punkte der Klassenrunde stehen in `public/js/regeln.js` unter `PUNKTE` (z. B. `zweifelRichtig: 3`) und lassen sich dort genauso ändern. Für die Waage: `waageMax` (Punkte für eine fast genaue Mahlzeit, voreingestellt 10) und `waageProzent` (je so viel Prozent Abweichung ein Punkt weniger, voreingestellt 5).
 
 Nach einer Änderung prüfen die Tests (`node --test tests/regeln.test.mjs`) die Datei: fehlende Werte, doppelte Kennungen, unbekannte Bilder, Kalorien, die gar nicht zu den Nährwerten passen (z. B. verrutschtes Komma), zu wenige deutlich verschiedene Karten für eine Reihe und Bedarfskarten, die sich nicht treffen lassen.
 
@@ -255,11 +271,14 @@ node tests/e2e.mjs                                      # Browser-Durchlauf: Bea
 node tests/e2e-klasse.mjs                               # Browser-Durchlauf Klassenrunde: Beamer + 6 Handys
 node tests/last.mjs                                     # Lasttest: 30 Handys gleichzeitig (ohne Browser)
 node tests/e2e-cpu.mjs                                  # Browser-Durchlauf: eine Person gegen die CPU (Reihe und Bedarf)
+node tests/e2e-waage.mjs                                # Browser-Durchlauf Klassenrunde Waage: Beamer + 4 Handys
 ```
 
 Alle Durchläufe lassen sich auch gegen die echte Cloudflare-Umgebung auf dem eigenen Rechner richten: `npx wrangler dev` starten und die Adresse anhängen, z. B. `node tests/last.mjs http://127.0.0.1:8787`.
 
-**Lasttest:** 30 simulierte Handys spielen 10 Runden Klassenrunde *Reihe* (mit Zweifeln), 5 Runden *Bedarf* und ein Qualifying. Unterwegs verlieren 3 Handys die Verbindung und kommen später zurück, 2 Handys geben eine Runde lang nichts ab. Geprüft wird, dass keine Runde hängen bleibt, alle Abgaben zählen und die Auflösung bei allen Handys ankommt (lokal und mit `wrangler dev` jeweils nach wenigen Millisekunden).
+**Lasttest:** 30 simulierte Handys spielen 10 Runden Klassenrunde *Reihe* (mit Zweifeln), 5 Runden *Bedarf*, 3 Runden *Waage* (3 Lebensmittel) und ein Qualifying. Unterwegs verlieren 3 Handys die Verbindung und kommen später zurück, 2 Handys geben eine Runde lang nichts ab. Geprüft wird, dass keine Runde hängen bleibt, alle Abgaben zählen und die Auflösung bei allen Handys ankommt (lokal und mit `wrangler dev` jeweils nach wenigen Millisekunden).
+
+Der Waage-Durchlauf prüft: Qualifying ist mit Waage gesperrt, Schieberegler und +/−, genau getroffen = 10 Punkte, ungenaue Mahlzeiten bekommen weniger, Beamer und Handy zeigen dieselben Zielwerte, die Lösung trifft das Ziel, „Runde beenden“ (ohne Abgabe keine Punkte), Endstand ohne Finale, verdeckte Werte mit 1 Lebensmittel und die automatische Abgabe bei Zeitende.
 
 Der Klassenrunden-Durchlauf prüft: Mehrheit legt falsch, zu Recht und zu Unrecht zweifeln, Punkte erst beim Aufdecken, Pause und Weiter, ein Handy wird geschlossen und kommt zurück, Endstand, weiter zum Finale, Klassenrunde *Bedarf* und vorzeitiges Beenden.
 

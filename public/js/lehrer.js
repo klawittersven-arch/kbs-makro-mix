@@ -4,10 +4,11 @@ import {
   SPIELARTEN, ART_TEXT, NW, NW_WAHL, NW_WAHL_TEXT, nwWahlKurz, STUFEN, STUFE_TEXT, ZEITEN, ZEIT_TEXT, QUALI_MINUTEN,
   FINAL_GROESSEN, SIEG_KARTEN, SCHLUSS_GNADE, GNADE, zeitLimit, prozentText, mitEinheit, wert, bewerte, sortiert,
   KLASSE_RUNDEN, PUNKTE, CPU_STUFEN, istCpu,
+  KLASSE_ARTEN, WAAGE_ANZAHL, WAAGE_RUNDEN, WAAGE_STUFE_TEXT, WAAGE_ANZAHL_TEXT, klasseN,
 } from './regeln.js';
 import {
   $, esc, LM, BK, fmtMs, mmss, tipp, lmKarte, lmGross, bedarfKarte, reiheHtml, reiheAufloesung, kombiListe, kombiText, balken,
-  zielText, zehntelText, nwChip,
+  zielText, zehntelText, nwChip, waageZiel, waageLm, waageTabelle,
 } from './karten.js';
 import { zielZehntel, kombiHinweis } from './regeln.js';
 import { TREFFER_PROZENT } from './inhalte.js';
@@ -18,9 +19,11 @@ const view = $('#view'), netdot = $('#netdot'), codeChip = $('#codeChip'), toast
 
 let sess = store('makro.lehrer');
 let net = null, room = null, screen = '';
-let cfg = Object.assign({ art: 'reihe', nw: 'kcal', stufe: 'offen', zeit: 'an', qmin: 3, finalN: 4, sieg: 3, runden: 15 }, store('makro.lehrer.cfg') || {});
+let cfg = Object.assign({ art: 'reihe', nw: 'kcal', stufe: 'offen', zeit: 'an', qmin: 3, finalN: 4, sieg: 3, runden: 15, zutaten: 2, wrunden: 5 }, store('makro.lehrer.cfg') || {});
 if (!KLASSE_RUNDEN.includes(Number(cfg.runden))) cfg.runden = 15;
-if (!SPIELARTEN.includes(cfg.art)) cfg.art = 'reihe';
+if (!KLASSE_ARTEN.includes(cfg.art)) cfg.art = 'reihe';
+if (!WAAGE_ANZAHL.includes(Number(cfg.zutaten))) cfg.zutaten = 2;
+if (!WAAGE_RUNDEN.includes(Number(cfg.wrunden))) cfg.wrunden = 5;
 if (!NW_WAHL.includes(cfg.nw)) cfg.nw = 'kcal';
 if (!STUFEN.includes(cfg.stufe)) cfg.stufe = 'offen';
 if (!ZEITEN.includes(cfg.zeit)) cfg.zeit = 'an';
@@ -83,6 +86,7 @@ function onMessage(m) {
       else if (m.why === 'final-players') toast('Bitte mindestens zwei Finalisten auswählen, davon mindestens eine Person (eine CPU kann Gegner sein).');
       else if (m.why === 'no-players') toast('Es hat sich noch niemand angemeldet.');
       else if (m.why === 'kick-finalist') toast('Finalisten können während des Finales nicht entfernt werden.');
+      else if (m.why === 'nur-klasse') toast('Die Waage gibt es nur als Klassenrunde (ohne Qualifying und Finale). Starte sie mit „Klassenrunde starten“ (K).');
       break;
     case 'ended': room = null; screen = ''; break;
   }
@@ -129,7 +133,17 @@ function optionen(el, modus) {
     o.append(l, r); el.appendChild(o);
   };
   const neu = part => { setCfg(part); optionen(el, modus); };
-  add('Spielart', seg('Spielart', SPIELARTEN.map(a => [a, ART_TEXT[a].name]), cfg.art, art => neu({ art })), ART_TEXT[cfg.art].kurz, true);
+  const arten = modus === 'lobby' ? KLASSE_ARTEN : SPIELARTEN;
+  add('Spielart', seg('Spielart', arten.map(a => [a, ART_TEXT[a].name]), cfg.art, art => neu({ art })), ART_TEXT[cfg.art] ? ART_TEXT[cfg.art].kurz : '', true);
+  if (cfg.art === 'waage' && modus === 'lobby') {
+    // Waage: nur Klassenrunde – eigene Einstellungen
+    add('Lebensmittel', seg('Lebensmittel pro Mahlzeit', WAAGE_ANZAHL.map(n => [n, String(n)]), Number(cfg.zutaten), zutaten => neu({ zutaten })), WAAGE_ANZAHL_TEXT(Number(cfg.zutaten)));
+    add('Schwierigkeit', seg('Schwierigkeit', STUFEN.map(st => [st, WAAGE_STUFE_TEXT[st].name]), cfg.stufe, stufe => neu({ stufe })), WAAGE_STUFE_TEXT[cfg.stufe].kurz);
+    add('Zeitlimit', seg('Zeitlimit', ZEITEN.map(z => [z, ZEIT_TEXT[z].name]), cfg.zeit, zeit => neu({ zeit })),
+      cfg.zeit === 'an' ? `Sehr großzügig: ${Math.round(zeitLimit('waage', Number(cfg.zutaten)) / 1000)} Sekunden pro Mahlzeit. Bei Zeitende wird abgegeben, was eingestellt ist.` : 'Die Runde endet, wenn alle abgegeben haben. Hängt eine Runde, beendest du sie am Beamer.');
+    add('Klassenrunde', seg('Runden der Klassenrunde', WAAGE_RUNDEN.map(n => [n, n + ' Runden']), Number(cfg.wrunden), wrunden => neu({ wrunden })), 'Alle gleichzeitig, Auflösung am Beamer. Die Waage gibt es nur als Klassenrunde.');
+    return;
+  }
   add('Nährwert', seg('Nährwert', NW_WAHL.map(n => [n, NW_WAHL_TEXT[n]]), cfg.nw, nw => neu({ nw })), nwWahlKurz(cfg.art, cfg.nw), true);
   if (cfg.art === 'reihe') add('Schwierigkeit', seg('Schwierigkeit', STUFEN.map(s => [s, STUFE_TEXT[s].name]), cfg.stufe, stufe => neu({ stufe })), STUFE_TEXT[cfg.stufe].kurz + (modus === 'lobby' ? ' (Klassenrunde: immer verdeckt)' : ''));
   add('Zeitlimit', seg('Zeitlimit', ZEITEN.map(z => [z, ZEIT_TEXT[z].name]), cfg.zeit, zeit => neu({ zeit })),
@@ -199,7 +213,8 @@ function lobby() {
     : '<p class="empty">Noch niemand da. Scannt den QR-Code und gebt euren Namen ein.</p>';
   ps.forEach(p => bekannt.add(p.pid));
   $('#names').querySelectorAll('.x').forEach(b => { b.onclick = () => send({ t: 'kick', pid: b.dataset.pid }); });
-  $('#btnStart').disabled = !ps.length;
+  $('#btnStart').disabled = !ps.length || !SPIELARTEN.includes(cfg.art);
+  $('#btnStart').title = SPIELARTEN.includes(cfg.art) ? 'Alle spielen allein auf dem Handy, die Besten kommen ins Finale' : 'Die Waage gibt es nur als Klassenrunde';
   $('#btnKlasse').disabled = !ps.length;
 }
 function startKlasse() {
@@ -210,6 +225,7 @@ function startKlasse() {
 function startQuali() {
   Ton.init();
   if (!room || !room.players.length) return toast('Es hat sich noch niemand angemeldet.');
+  if (!SPIELARTEN.includes(cfg.art)) return toast('Die Waage gibt es nur als Klassenrunde. Starte sie mit „Klassenrunde starten“ (K).');
   send({ t: 'quali-start', cfg });
 }
 
@@ -663,7 +679,7 @@ function stopKlasse() {
 }
 const kat = (fn, when) => KB.timers.push(setTimeout(fn, Math.max(0, when - serverNow())));
 const kLauf = k => !!k && k.state === 'run' && !k.paused && !!k.startAt && serverNow() >= k.startAt;
-const kArt = k => k.art === 'reihe' ? `Reihe · ${NW[k.nw] ? NW[k.nw].name : ''}` : `Bedarf · ${NW_WAHL_TEXT[k.nwWahl]}`;
+const kArt = k => k.art === 'reihe' ? `Reihe · ${NW[k.nw] ? NW[k.nw].name : ''}` : k.art === 'waage' ? `Waage · ${k.zutaten} Lebensmittel` : `Bedarf · ${NW_WAHL_TEXT[k.nwWahl]}`;
 const namenListe = (l, max = 12) => l.length <= max ? l.join(', ') : l.slice(0, max).join(', ') + ` und ${l.length - max} weitere`;
 
 function klasse() {
@@ -678,7 +694,7 @@ function klasse() {
       kBuehne(k); kSeite(k); kPauseText(k);
       kStatus(`Runde ${k.last.runde}<small>von ${k.runden} · Klassenrunde · ${esc(kArt(k))}</small>`, 'Gleich kommt der Endstand', 'beamer');
       screen = 'klasse-aufl:' + k.nr;
-      KB.endeT = setTimeout(klasseEnde, k.art === 'bedarf' ? 9000 : 8000);
+      KB.endeT = setTimeout(klasseEnde, k.art === 'waage' ? 12000 : k.art === 'bedarf' ? 9000 : 8000);
       return;
     }
     return klasseEnde();
@@ -731,7 +747,11 @@ function kBuehne(k) {
   const titel = r => `Runde ${r}<small>von ${k.runden} · Klassenrunde · ${esc(kArt(k))}</small>`;
   if (phase === 'vor') {
     kStatus(titel(k.runde), 'Gleich geht’s los!', 'beamer');
-    el.innerHTML = `<div class="tcard intro"><h2>Klassenrunde</h2>${k.art === 'reihe'
+    el.innerHTML = `<div class="tcard intro"><h2>Klassenrunde</h2>${k.art === 'waage'
+      ? `<p>Jede Runde steht hier eine Mahlzeit mit vier Zielwerten: <b>Kalorien, Fett, Kohlenhydrate und Eiweiß</b>.</p>
+         <p>Auf dem Handy stellt ihr mit Schiebereglern ein, wie viel Gramm ihr von ${k.zutaten === 1 ? 'dem Lebensmittel' : `jedem der ${k.zutaten} Lebensmittel`} nehmt. Ziel: Alle vier Werte möglichst genau treffen.${k.stufe === 'offen' ? ' Die Nährwerte je 100 g stehen dabei.' : ' Die Nährwerte bleiben verdeckt – ihr müsst sie wissen oder schätzen.'}</p>
+         <p>Fast genau (weniger als ${PUNKTE.waageProzent} % daneben) = <b>${PUNKTE.waageMax} Punkte</b>, je ${PUNKTE.waageProzent} % mehr Abweichung ein Punkt weniger.${k.deadline ? ' Wenn die Zeit um ist, wird abgegeben, was eingestellt ist.' : ''}</p>`
+      : k.art === 'reihe'
       ? `<p>Jede Runde kommt eine neue Karte. Ihr habt zwei Möglichkeiten: <b>einordnen</b> oder <b>zweifeln</b>.</p>
          <p>Die Karte kommt dorthin, wo die <b>Mehrheit</b> sie hinlegt – auch wenn das falsch ist. Die Werte bleiben verdeckt.</p>
          <p>Wer glaubt, dass in der Reihe ein Fehler steckt, <b>zweifelt</b>. Dann wird aufgedeckt: Fehler gefunden = <b>+${PUNKTE.zweifelRichtig}</b>, Reihe war richtig = <b>${PUNKTE.zweifelFalsch}</b>. Danach beginnt eine neue Reihe.</p>
@@ -742,7 +762,7 @@ function kBuehne(k) {
   } else if (phase === 'aufl') {
     bigCount(null);
     const L = k.last;
-    el.innerHTML = k.art === 'reihe' ? kReiheAufl(L) : kBedarfAufl(L);
+    el.innerHTML = k.art === 'reihe' ? kReiheAufl(L) : k.art === 'waage' ? kWaageAufl(L, k) : kBedarfAufl(L);
     if (k.state === 'ende') kStatus(titel(L.runde), 'Letzte Runde', 'beamer');
     else if (k.paused) kStatus(titel(L.runde), 'Pause', 'beamer');
     else {
@@ -765,6 +785,13 @@ function kBuehne(k) {
           <p class="hint">Auf dem Handy einordnen – oder zweifeln, wenn ihr glaubt, dass in der Reihe schon ein Fehler steckt.</p>
           <p class="hint">Reihe ${k.reiheNr} · Karte ${k.kPos} von ${k.kLen}</p></div>
         <div class="reihebox beamer">${reiheHtml(k.reihe, k.nw, { geordnet: true, zeigen: false, cls: k.reihe.length > 8 ? 'dicht' : '' })}</div></div>`;
+    } else if (k.art === 'waage') {
+      kStatus(titel(k.runde), 'Stellt die Grammzahlen ein!', 'tippen');
+      const w = k.w, offen = k.stufe === 'offen';
+      el.innerHTML = `<div class="waagebuehne">
+        <div class="wzielbox"><span class="eyebrow">Diese Mahlzeit soll haben</span>${waageZiel(w.ziel, { cls: 'gross' })}</div>
+        <div class="wlms n${w.lm.length}">${w.lm.map(i => waageLm(i, { zeigen: offen, cls: 'gross' })).join('')}</div>
+        <p class="hint">Auf dem Handy für ${w.lm.length === 1 ? 'das Lebensmittel' : 'jedes Lebensmittel'} die Grammzahl einstellen.${offen ? ' Die Werte gelten je 100 g.' : ' Die Nährwerte müsst ihr wissen oder schätzen.'}</p></div>`;
     } else {
       kStatus(titel(k.runde), 'Triff den Zielwert!', 'tippen');
       el.innerHTML = `<div class="bedarfbuehne">${bedarfKarte(k.b, { cls: 'gross' })}
@@ -773,7 +800,7 @@ function kBuehne(k) {
     }
     const box = $('#kBarBox'); box.hidden = !k.deadline;
     if (k.deadline) {
-      const limit = zeitLimit(k.art, k.art === 'reihe' ? k.reihe.length : 0, k.zeit);
+      const limit = zeitLimit(k.art, klasseN(k), k.zeit);
       const tick = () => {
         if (!KB || KB.key !== key) return;
         const rest = k.deadline - serverNow();
@@ -852,6 +879,27 @@ function kBedarfAufl(L) {
     </div>
   </div>`;
 }
+// Auflösung Waage: Lösung (mit Werten je 100 g), Klassenschnitt und wer wie viele Punkte bekommt
+function kWaageAufl(L, k) {
+  const w = L.w, max = PUNKTE.waageMax, zeigeMax = 40;
+  const spalten = [{ titel: 'Lösung', g: w.rezept, cls: 'loesung' }];
+  if (L.schnitt) spalten.push({ titel: 'Klasse Ø', g: L.schnitt });
+  const cls = p => p >= max - 1 ? 'wp-a' : p >= max - 4 ? 'wp-b' : p > 0 ? 'wp-c' : 'wp-0';
+  const liste = L.liste.slice(0, zeigeMax);
+  return `<div class="waagebuehne aufl">
+    <div class="wauflgrid">
+      <div class="tcard"><h3>So wäre es genau gegangen</h3>
+        ${waageZiel(w.ziel)}
+        ${waageTabelle(w, spalten, { zeigen: true })}
+        <p class="hint">Werte je 100 g.${L.schnitt ? ' „Klasse Ø“ = Durchschnitt eurer Grammzahlen.' : ''}</p>
+        <p class="hint" id="naechste"></p></div>
+      <div class="tcard"><h3>Punkte in dieser Runde <small>${L.anzahl} ${L.anzahl === 1 ? 'Abgabe' : 'Abgaben'}</small></h3>
+        ${L.anzahl ? `<div class="wpunkte">${liste.map(x => `<span class="wp ${cls(x.plus)}"><b>${x.plus}</b>${esc(x.name)}</span>`).join('')}${L.liste.length > zeigeMax ? `<span class="wp mehr">… und ${L.liste.length - zeigeMax} weitere</span>` : ''}</div>`
+          : '<p class="hint">Niemand hat abgegeben.</p>'}
+      </div>
+    </div>
+  </div>`;
+}
 function kTon(k) {
   const L = k.last;
   if (k.art === 'reihe') {
@@ -861,7 +909,7 @@ function kTon(k) {
     setTimeout(() => (gut ? Ton.richtig() : Ton.fehler()), 600);
   } else {
     Ton.aufdecken(6);
-    setTimeout(() => Ton.richtig(), 600);
+    setTimeout(() => Ton.richtig(), 600); // Bedarf und Waage
   }
 }
 // Seitenleiste: Abgaben dieser Runde und Punkte-Rangliste
@@ -916,11 +964,11 @@ function klasseEnde() {
     </div>
     <div class="tactions"><button class="ghost-btn" id="btnLobby">Neues Spiel <span class="kbd">Esc</span></button>
       <button class="ghost-btn" id="btnNochmal">Noch eine Klassenrunde <span class="kbd">K</span></button><span class="grow"></span>
-      <button class="big-btn" id="btnZumFinale" title="Die Besten nach Punkten spielen das Finale">Weiter zum Finale <span class="kbd">Enter</span></button></div>
+      ${k.art === 'waage' ? '' : '<button class="big-btn" id="btnZumFinale" title="Die Besten nach Punkten spielen das Finale">Weiter zum Finale <span class="kbd">Enter</span></button>'}</div>
   </div>`;
   $('#btnLobby').onclick = toLobby;
   $('#btnNochmal').onclick = () => { Ton.init(); send({ t: 'klasse-start', cfg }); };
-  $('#btnZumFinale').onclick = () => send({ t: 'klasse-final' });
+  if ($('#btnZumFinale')) $('#btnZumFinale').onclick = () => send({ t: 'klasse-final' });
   Ton.fanfare();
   konfetti();
 }
@@ -936,7 +984,7 @@ document.addEventListener('keydown', e => {
     else if (room.phase === 'quali') endQuali();
     else if (room.phase === 'final-setup') startFinal();
     else if (room.phase === 'podium' && screen.startsWith('podium')) { Ton.init(); send({ t: 'revanche', cfg }); }
-    else if (room.phase === 'klasse' && screen.startsWith('klasse-ende')) send({ t: 'klasse-final' });
+    else if (room.phase === 'klasse' && screen.startsWith('klasse-ende') && room.klasse && room.klasse.art !== 'waage') send({ t: 'klasse-final' });
   } else if (e.key === ' ') {
     if (room.phase === 'final') { e.preventDefault(); const b = $('#btnPause'); if (b && !b.disabled) pauseKnopf(); }
     if (room.phase === 'klasse') { e.preventDefault(); const b = $('#kPause'); if (b && !b.disabled && !b.hidden) kPauseKnopf(); }

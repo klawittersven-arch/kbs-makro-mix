@@ -4,10 +4,12 @@
  */
 import { LEBENSMITTEL, BEDARFSKARTEN, ABSTAND, TREFFER_PROZENT, MINDEST_KARTEN } from './inhalte.js';
 
-export const SPIELARTEN = ['reihe', 'bedarf'];
+export const SPIELARTEN = ['reihe', 'bedarf'];            // Qualifying, Finale und Übungsseite
+export const KLASSE_ARTEN = ['reihe', 'bedarf', 'waage'];  // Klassenrunde (Waage gibt es nur hier)
 export const ART_TEXT = {
   reihe: { name: 'Reihe', kurz: 'Lebensmittel nach dem Nährwert ordnen: Wo gehört die neue Karte hin?' },
   bedarf: { name: 'Bedarf', kurz: 'Bis zu 5 Lebensmittel kombinieren und den Zielwert der Bedarfskarte treffen, ohne ihn zu überschreiten.' },
+  waage: { name: 'Waage', kurz: 'Grammzahlen einstellen: eine Mahlzeit, die die Zielwerte (kcal, Fett, Kohlenhydrate, Eiweiß) möglichst genau trifft. Nur als Klassenrunde.' },
 };
 
 export const NAEHRWERTE = ['kcal', 'fett', 'kh', 'eiweiss'];
@@ -50,11 +52,15 @@ export const VORLAUF_WEITER = 3000;  // nach „Weiter“ (wenn die Lehrkraft an
 export const GNADE = 1500;           // so lange nach Ablauf der Zeit werden Antworten noch angenommen (Netz)
 export const SCHLUSS_GNADE = 3000;   // so lange nach Ende des Qualifyings zählen Ergebnisse noch (Netz)
 
-// Zeit für eine Finalrunde: sehr großzügig, getestet wird Wissen, nicht Tempo. zeit = 'aus' → 0 (kein Limit)
-export function zeitLimit(art, reiheLen, zeit = 'an') {
+// Zeit für eine Runde: sehr großzügig, getestet wird Wissen, nicht Tempo. zeit = 'aus' → 0 (kein Limit)
+// n = Reihe: Karten in der Reihe; Waage: Anzahl der Lebensmittel (1 → 1 Min., 2 → 1:30, 3 → 2 Min.)
+export function zeitLimit(art, n, zeit = 'an') {
   if (zeit === 'aus') return 0;
-  return art === 'bedarf' ? 120000 : 30000 + 3000 * reiheLen;
+  if (art === 'waage') return 30000 + 30000 * (Number(n) || 1);
+  return art === 'bedarf' ? 120000 : 30000 + 3000 * n;
 }
+// Das n für zeitLimit in der Klassenrunde (Server und Bildschirme)
+export const klasseN = k => k.art === 'reihe' ? (k.reihe ? k.reihe.length : 0) : k.art === 'waage' ? k.zutaten : 0;
 export function rundenPlan(startAt, art, reiheLen, zeit) {
   const limit = zeitLimit(art, reiheLen, zeit);
   return { startAt, deadline: limit ? startAt + limit : 0 };
@@ -239,9 +245,11 @@ export const PUNKTE = {
   beste: 3,           // Bedarf: die beste mögliche Kombination getroffen
   gut: 2,             // Bedarf: mindestens 90 % des Zielwerts, ohne zu überschreiten
   ok: 1,              // Bedarf: mindestens TREFFER_PROZENT (80 %) des Zielwerts
+  waageMax: 10,       // Waage: Punkte für eine fast genaue Mahlzeit (weniger als waageProzent daneben)
+  waageProzent: 5,    // Waage: je so viel Prozent Abweichung gibt es einen Punkt weniger
 };
 // Pause nach einer Runde: Auflösung zeigen (Reihe aufgedeckt dauert länger)
-export const KLASSE_PAUSE = { reihe: 7000, aufgedeckt: 14000, bedarf: 13000 };
+export const KLASSE_PAUSE = { reihe: 7000, aufgedeckt: 14000, bedarf: 13000, waage: 15000 };
 
 // Klassen-Reihe in gelegter Reihenfolge (unten → oben): Wo steht eine Karte falsch?
 // Rückgabe: Positionen p, an denen Karte p mehr hat als Karte p+1 darüber.
@@ -272,6 +280,88 @@ export function bedarfPunkte(sumZ, zielZ, bestZ, leer = false) {
   if (sumZ * 100 >= zielZ * 90) return PUNKTE.gut;
   if (sumZ * 100 >= zielZ * TREFFER_PROZENT) return PUNKTE.ok;
   return 0;
+}
+
+// ---------------------------------------------------------------- Spielart „Waage“ (nur Klassenrunde)
+// Am Beamer stehen Zielwerte einer Mahlzeit (kcal, Fett, Kohlenhydrate, Eiweiß). Auf dem Handy stellt man
+// für 1 bis 3 Lebensmittel die Grammzahl ein. Die Zielwerte stammen aus einem versteckten Rezept,
+// darum sind sie immer genau erreichbar. Punkte gibt es nach Genauigkeit.
+export const WAAGE_ANZAHL = [1, 2, 3];     // Lebensmittel pro Mahlzeit (am Beamer wählbar)
+export const WAAGE_RUNDEN = [5, 8, 10];
+export const WAAGE_STUFE_TEXT = {
+  offen: { name: 'Einfach', kurz: 'Die Nährwerte je 100 g stehen bei den Lebensmitteln. Man muss rechnen.' },
+  verdeckt: { name: 'Schwer', kurz: 'Die Nährwerte bleiben verdeckt. Man muss sie wissen oder schätzen.' },
+};
+export const WAAGE_ANZAHL_TEXT = n => n === 1 ? 'Ein Lebensmittel: Wie viel Gramm sind es?' : `${n} Lebensmittel kombinieren${n === 3 ? ' (schwer)' : ''}.`;
+// Kleine Zielwerte: Abweichung wird mindestens an 100 kcal bzw. 10 g gemessen (sonst wären 2 g statt 1 g schon 100 % daneben)
+export const WAAGE_BODEN = { kcal: 100, g: 10 };
+const WAAGE_MIN_KCAL = 45;                  // fast energiefreie Lebensmittel (Gurke, Paprika) machen die Waage langweilig
+
+// Bereich des Schiebereglers: bis etwa 800 kcal, höchstens 300 g; feine Schritte bei energiereichen Lebensmitteln
+export function waageBereich(i) {
+  const kcal = wert(LEBENSMITTEL[i], 'kcal') || 1;
+  const max = Math.min(300, Math.max(50, Math.floor(80000 / kcal / 50) * 50));
+  return { max, schritt: max <= 100 ? 5 : 10 };
+}
+// Nährwerte einer Mahlzeit: g[k] Gramm von Lebensmittel lm[k]
+export function waageWerte(lm, g) {
+  const out = { kcal: 0, fett: 0, kh: 0, eiweiss: 0 };
+  lm.forEach((i, k) => { for (const nw of NAEHRWERTE) out[nw] += wert(LEBENSMITTEL[i], nw) * (Number(g[k]) || 0) / 100; });
+  return out;
+}
+// Zielwerte als ganze Zahlen (am Beamer gut lesbar)
+export const waageRund = w => Object.fromEntries(NAEHRWERTE.map(nw => [nw, Math.round(w[nw])]));
+// Nährstoff-Anteile an der Energie (Fett, KH, Eiweiß): daran erkennt man, ob zwei Lebensmittel sich deutlich unterscheiden
+function anteile(i) {
+  const l = LEBENSMITTEL[i], f = 9 * wert(l, 'fett'), c = 4 * wert(l, 'kh'), p = 4 * wert(l, 'eiweiss'), t = f + c + p || 1;
+  return [f / t, c / t, p / t];
+}
+const abstand = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+const det3 = (a, b, c) => a[0] * (b[1] * c[2] - b[2] * c[1]) - a[1] * (b[0] * c[2] - b[2] * c[0]) + a[2] * (b[0] * c[1] - b[1] * c[0]);
+// Passen die Lebensmittel zusammen? Sie sollen sich deutlich unterscheiden (z. B. eins fettreich, eins eiweißreich),
+// sonst gäbe es viele fast gleich gute Lösungen.
+function waagePasst(lm) {
+  const a = lm.map(anteile);
+  for (let x = 0; x < a.length; x++) for (let y = x + 1; y < a.length; y++) if (abstand(a[x], a[y]) < (lm.length === 2 ? 0.4 : 0.3)) return false;
+  return lm.length < 3 || Math.abs(det3(a[0], a[1], a[2])) >= 0.1;
+}
+/**
+ * Eine Waage-Runde: n Lebensmittel, Bereiche der Schieberegler, verstecktes Rezept (Gramm) und Zielwerte.
+ * ohne: Lebensmittel, die zuletzt dran waren (werden möglichst nicht wieder gewählt)
+ */
+export function waageRunde(seed, n, ohne = []) {
+  n = WAAGE_ANZAHL.includes(Number(n)) ? Number(n) : 2;
+  const r = rng(mischSeed(seed, 51));
+  const alle = LEBENSMITTEL.map((_, i) => i).filter(i => wert(LEBENSMITTEL[i], 'kcal') >= WAAGE_MIN_KCAL);
+  const frisch = alle.filter(i => !ohne.includes(i));
+  let lm = null;
+  for (let versuch = 0; versuch < 400 && !lm; versuch++) {
+    const pool = versuch < 200 && frisch.length >= n * 4 ? frisch : alle;
+    const t = mische(pool, r).slice(0, n);
+    if (waagePasst(t)) lm = t;
+  }
+  if (!lm) lm = mische(alle, r).slice(0, n);
+  const ber = lm.map(waageBereich);
+  // Rezept: zwischen 20 % und 70 % des Reglers, genau auf einem Schritt des Reglers
+  const rezept = ber.map(({ max, schritt }) => {
+    const lo = Math.max(schritt, Math.ceil(max * 0.2 / schritt) * schritt), hi = Math.floor(max * 0.7 / schritt) * schritt;
+    return lo + Math.floor(r() * ((hi - lo) / schritt + 1)) * schritt;
+  });
+  return { lm, max: ber.map(b => b.max), schritt: ber.map(b => b.schritt), rezept, ziel: waageRund(waageWerte(lm, rezept)) };
+}
+// Abweichung einer Mahlzeit von den Zielwerten in Zehntel-Prozent (Mittel über kcal, Fett, KH, Eiweiß)
+export function waageAbweichung(ziel, werte) {
+  let s = 0;
+  for (const nw of NAEHRWERTE) s += Math.abs(werte[nw] - ziel[nw]) / Math.max(ziel[nw], nw === 'kcal' ? WAAGE_BODEN.kcal : WAAGE_BODEN.g);
+  return Math.round(s / NAEHRWERTE.length * 1000);
+}
+// Punkte: 10 bei weniger als 5 % Abweichung, je weitere 5 % einen Punkt weniger (nie unter 0)
+export const waagePunkte = abwZ => Math.max(0, PUNKTE.waageMax - Math.floor(abwZ / (PUNKTE.waageProzent * 10)));
+// Abgabe prüfen: eine Grammzahl pro Lebensmittel, im Bereich des Reglers, auf einem Schritt
+export function sauberGramm(g, w) {
+  if (!Array.isArray(g) || g.length !== w.lm.length) return null;
+  const out = g.map(Number);
+  return out.every((x, k) => Number.isInteger(x) && x >= 0 && x <= w.max[k] && x % w.schritt[k] === 0) ? out : null;
 }
 
 // ---------------------------------------------------------------- Computergegner (CPU) im Finale

@@ -3,7 +3,8 @@
 import { LEBENSMITTEL, BEDARFSKARTEN, TIPPS, TREFFER_PROZENT } from './inhalte.js';
 import { bild, personBild } from './bilder.js';
 import {
-  NW, MAX_AUSWAHL, wert, zahl, mitEinheit, sortiert, richtigeLuecke, zielZehntel, untergrenze, summe, besteKombi,
+  NW, NAEHRWERTE, MAX_AUSWAHL, wert, zahl, mitEinheit, sortiert, richtigeLuecke, zielZehntel, untergrenze, summe, besteKombi,
+  WAAGE_BODEN,
 } from './regeln.js';
 
 export const $ = s => document.querySelector(s);
@@ -213,5 +214,94 @@ export function bedarfAuswertung(bIdx, hand, pick, e, o = {}) {
     <div class="beste ${bestGleich ? 'gleich' : ''}"><h3>${bestGleich ? 'Das war die beste Möglichkeit!' : 'Beste Möglichkeit mit diesen Karten'}</h3>
       ${bestGleich ? '' : `<p>${esc(kombiText(best.pick, nw))}</p>`}</div>
     ${o.extra || ''}
+  </div>`;
+}
+
+// ---------------------------------------------------------------- Waage
+const nwKurz = (nw, kurz) => nw === 'kcal' ? 'kcal' : kurz && nw === 'kh' ? 'KH' : NW[nw].name;
+const nwZahl = (v, nw) => nw === 'kcal' ? `${Math.round(v)} kcal` : `${Math.round(v)} g`;
+// Zahl mit kleiner Einheit (die Einheit in normaler Schrift, damit aus „g“ kein „G“ wird)
+export const grammHtml = g => `${g}<small class="einh">g</small>`;
+const zahlHtml = (v, nw) => `${Math.round(v)}<small class="einh">${nw === 'kcal' ? 'kcal' : 'g'}</small>`;
+// Zielwerte als vier farbige Kästchen (kcal, Fett, Kohlenhydrate, Eiweiß)
+export function waageZiel(ziel, o = {}) {
+  return `<div class="wziel ${o.cls || ''}">${o.titel ? `<span class="wztitel">${esc(o.titel)}</span>` : ''}${NAEHRWERTE.map(nw =>
+    `<div class="wz nw-${nw}"><b>${Math.round(ziel[nw])}${nw === 'kcal' ? '' : '<small class="einh">g</small>'}</b><span>${esc(nwKurz(nw, o.kurz))}</span></div>`).join('')}</div>`;
+}
+// Lebensmittel mit Bild, Name und (wenn zeigen) allen vier Werten je 100 g
+export function waageLm(i, o = {}) {
+  const l = LM(i); if (!l) return '';
+  const werte = o.zeigen
+    ? `<span class="wwerte">${NAEHRWERTE.map(nw => `<i class="nw-${nw}">${esc(zahl(wert(l, nw), nw))} ${nw === 'kcal' ? 'kcal' : 'g ' + (nw === 'kh' ? 'KH' : NW[nw].name)}</i>`).join('')}</span>`
+    : '';
+  return `<div class="lm wl ${o.cls || ''}" data-lm="${esc(l.id)}"><span class="lmbild">${bild(l.bild)}</span><span class="lmname">${esc(l.name)}<small class="lmje">je 100 g${o.zeigen ? '' : ' · Werte verdeckt'}</small>${werte}</span>${o.extra || ''}</div>`;
+}
+/**
+ * Schieberegler für die Grammzahlen. o: { w: { lm, max, schritt }, zeigen, onAbgabe(g) }
+ * Rückgabe: { sperren(), g (aktuelle Grammzahlen) }
+ */
+export function waageEingabe(el, o) {
+  const w = o.w, g = w.lm.map(() => 0);
+  let aktiv = true;
+  el.innerHTML = `<div class="waage">${w.lm.map((i, k) => `<div class="wregel" data-k="${k}">
+      ${waageLm(i, { zeigen: o.zeigen })}
+      <div class="wregler">
+        <button type="button" class="wbtn" data-d="-1" aria-label="${esc(LM(i).name)}: ${w.schritt[k]} g weniger">−</button>
+        <input type="range" min="0" max="${w.max[k]}" step="${w.schritt[k]}" value="0" aria-label="Gramm ${esc(LM(i).name)}">
+        <button type="button" class="wbtn" data-d="1" aria-label="${esc(LM(i).name)}: ${w.schritt[k]} g mehr">+</button>
+        <b class="wg">${grammHtml(0)}</b>
+      </div>
+      <div class="wskala"><span>0 g</span><span>${w.max[k]} g</span></div>
+    </div>`).join('')}
+    <div class="abgabe"><button class="big-btn" id="btnAb" disabled>Grammzahlen einstellen</button></div></div>`;
+  const btn = el.querySelector('#btnAb');
+  const zeige = () => {
+    el.querySelectorAll('.wregel').forEach(r => {
+      const k = Number(r.dataset.k);
+      r.querySelector('input').value = String(g[k]);
+      r.querySelector('.wg').innerHTML = grammHtml(g[k]);
+      r.classList.toggle('an', g[k] > 0);
+    });
+    const leer = g.every(x => x === 0);
+    btn.disabled = leer || !aktiv;
+    btn.textContent = leer ? 'Grammzahlen einstellen' : 'Fertig ✓';
+  };
+  const setze = (k, v) => { if (!aktiv) return; g[k] = Math.max(0, Math.min(w.max[k], Math.round(v / w.schritt[k]) * w.schritt[k])); zeige(); };
+  el.querySelectorAll('.wregel').forEach(r => {
+    const k = Number(r.dataset.k), inp = r.querySelector('input');
+    inp.addEventListener('input', () => setze(k, Number(inp.value)));
+    // + und −: antippen = ein Schritt, gedrückt halten = schnell weiter
+    r.querySelectorAll('.wbtn').forEach(b => {
+      let t1 = 0, t2 = 0;
+      const stop = () => { clearTimeout(t1); clearInterval(t2); };
+      const schritt = () => setze(k, g[k] + Number(b.dataset.d) * w.schritt[k]);
+      b.addEventListener('pointerdown', e => { e.preventDefault(); schritt(); stop(); t1 = setTimeout(() => { t2 = setInterval(schritt, 90); }, 450); });
+      ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => b.addEventListener(ev, stop));
+      b.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); schritt(); } });
+    });
+  });
+  btn.onclick = () => { if (!aktiv || g.every(x => x === 0)) return; aktiv = false; sperren(); o.onAbgabe(g.slice()); };
+  function sperren() {
+    aktiv = false;
+    el.querySelectorAll('input,.wbtn').forEach(x => { x.disabled = true; });
+    zeige();
+  }
+  zeige();
+  return { sperren, get g() { return g.slice(); } };
+}
+// Ziel und eigene Mahlzeit nebeneinander, mit Unterschied (grün = fast genau)
+export function waageVergleich(ziel, werte) {
+  return `<table class="wvergleich"><thead><tr><th></th><th>Ziel</th><th>Du</th><th>Unterschied</th></tr></thead><tbody>${NAEHRWERTE.map(nw => {
+    const d = werte[nw] - ziel[nw], boden = nw === 'kcal' ? WAAGE_BODEN.kcal : WAAGE_BODEN.g;
+    const rel = Math.abs(d) / Math.max(ziel[nw], boden);
+    const cls = rel < 0.05 ? 'gut' : rel < 0.2 ? 'mittel' : 'weit';
+    const dt = Math.round(d) === 0 ? '±0' : (d > 0 ? '+' : '−') + zahlHtml(Math.abs(d), nw);
+    return `<tr class="nw-${nw}"><th><i></i>${esc(nwKurz(nw, true))}</th><td>${zahlHtml(ziel[nw], nw)}</td><td>${zahlHtml(werte[nw], nw)}</td><td class="${cls}">${dt}</td></tr>`;
+  }).join('')}</tbody></table>`;
+}
+// Grammzahlen je Lebensmittel in Spalten, z. B. „Du“ und „Lösung“. spalten: [{ titel, g, cls }]
+export function waageTabelle(w, spalten, o = {}) {
+  return `<div class="wtabelle" style="--spalten:${spalten.length}">
+    ${w.lm.map((i, k) => `<div class="wtzeile">${waageLm(i, { zeigen: o.zeigen })}${spalten.map(c => `<b class="wtg ${c.cls || ''}"><small>${esc(c.titel)}</small><span>${c.g ? grammHtml(c.g[k]) : '–'}</span></b>`).join('')}</div>`).join('')}
   </div>`;
 }

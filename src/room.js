@@ -8,6 +8,7 @@ import {
   zeitLimit, rundenPlan, kette, richtigeLuecke, bedarfFinalRunde, sauberePick, bewerte, besteKombi, zielZehntel,
   vergleichQuali, zufallsSeed, mischSeed, nwFuer,
   KLASSE_RUNDEN, PUNKTE, KLASSE_PAUSE, reiheFehler, passtLuecke, mehrheit, bedarfPunkte,
+  KLASSE_ARTEN, WAAGE_ANZAHL, WAAGE_RUNDEN, waageRunde, waageWerte, waageAbweichung, waagePunkte, sauberGramm, klasseN,
   CPU_STUFEN, istCpu, cpuName, cpuDenkzeit, cpuLuecke, cpuAuswahl, rng,
 } from '../public/js/regeln.js';
 
@@ -33,7 +34,7 @@ export function cleanCfg(c, old) {
   c = c || {}; old = old || {};
   const pick = (v, list, def) => list.includes(v) ? v : def;
   return {
-    art: pick(c.art, SPIELARTEN, pick(old.art, SPIELARTEN, 'reihe')),
+    art: pick(c.art, KLASSE_ARTEN, pick(old.art, KLASSE_ARTEN, 'reihe')), // „waage“ nur für die Klassenrunde
     nw: pick(c.nw, NW_WAHL, pick(old.nw, NW_WAHL, 'kcal')),
     stufe: pick(c.stufe, STUFEN, pick(old.stufe, STUFEN, 'offen')),
     zeit: pick(c.zeit, ZEITEN, pick(old.zeit, ZEITEN, 'an')),
@@ -41,6 +42,8 @@ export function cleanCfg(c, old) {
     finalN: pick(Number(c.finalN), FINAL_GROESSEN, pick(Number(old.finalN), FINAL_GROESSEN, 4)),
     sieg: pick(Number(c.sieg), SIEG_KARTEN, pick(Number(old.sieg), SIEG_KARTEN, 3)),
     runden: pick(Number(c.runden), KLASSE_RUNDEN, pick(Number(old.runden), KLASSE_RUNDEN, 15)),
+    zutaten: pick(Number(c.zutaten), WAAGE_ANZAHL, pick(Number(old.zutaten), WAAGE_ANZAHL, 2)),   // Waage: Lebensmittel pro Mahlzeit
+    wrunden: pick(Number(c.wrunden), WAAGE_RUNDEN, pick(Number(old.wrunden), WAAGE_RUNDEN, 5)),   // Waage: Runden der Klassenrunde
   };
 }
 
@@ -188,6 +191,7 @@ export class RoomLogic {
         if (s.phase !== 'lobby') return;
         if (!s.order.length) return conn.send({ t: 'error', why: 'no-players' });
         s.cfg = cleanCfg(msg.cfg, s.cfg);
+        if (!SPIELARTEN.includes(s.cfg.art)) { await this.persist(); return conn.send({ t: 'error', why: 'nur-klasse' }); }
         s.nr++;
         s.quali = {
           nr: s.nr, seed: zufallsSeed(), art: s.cfg.art, nw: s.cfg.nw, stufe: s.cfg.stufe,
@@ -226,6 +230,7 @@ export class RoomLogic {
         const on = this.online();
         if (!p.every(pid => istCpu(pid) || on.has(pid))) return conn.send({ t: 'error', why: 'final-offline' });
         if (msg.cfg) s.cfg = cleanCfg(msg.cfg, s.cfg);
+        if (!SPIELARTEN.includes(s.cfg.art)) return conn.send({ t: 'error', why: 'nur-klasse' });
         const seed = zufallsSeed(), c = s.cfg;
         s.nr++;
         const neu = {
@@ -314,7 +319,7 @@ export class RoomLogic {
           else k.haltNext = true;
         } else {
           k.haltNext = false;
-          if (k.paused) { k.paused = false; Object.assign(k, rundenPlan(now + VORLAUF_WEITER, k.art, k.art === 'reihe' ? k.reihe.length : 0, k.zeit)); }
+          if (k.paused) { k.paused = false; Object.assign(k, rundenPlan(now + VORLAUF_WEITER, k.art, klasseN(k), k.zeit)); }
         }
         await this.persist(); this.pushAll(); return;
       }
@@ -331,6 +336,7 @@ export class RoomLogic {
         // Weiter zum Finale: Die Punkte der Klassenrunde sind die Rangliste
         const k = s.klasse;
         if (s.phase !== 'klasse' || !k || k.state !== 'ende') return;
+        if (!SPIELARTEN.includes(k.art)) return conn.send({ t: 'error', why: 'nur-klasse' }); // nach der Waage gibt es kein Finale
         for (const pid of s.order) {
           const pk = k.punkte[pid];
           s.players[pid].q = pk ? { lvl: pk.p, acc: pk.richtig, ms: pk.ms, v: 0, fehler: 0, done: true, klasse: true } : null;
@@ -426,14 +432,14 @@ export class RoomLogic {
         conn.send({ t: 'q-ok', best: p.q.lvl });
         return;
       }
-      case 'k-reihe': case 'k-bedarf': {
+      case 'k-reihe': case 'k-bedarf': case 'k-waage': {
         // Klassenrunde: eine Abgabe pro Runde (einordnen, zweifeln oder Lebensmittel auswählen)
         const k = s.klasse;
         if (s.phase !== 'klasse' || !k || k.state !== 'run' || msg.nr !== k.nr || msg.r !== k.runde) return;
         if (k.paused || !k.startAt || now < k.startAt - 1000) return;
         if (k.deadline && now > k.deadline + GNADE) return;
         if (!s.players[pid] || k.antworten[pid]) return;
-        const limit = zeitLimit(k.art, k.art === 'reihe' ? k.reihe.length : 0, k.zeit);
+        const limit = zeitLimit(k.art, klasseN(k), k.zeit);
         const dauer = limit ? Math.min(ms(msg.ms), limit) : ms(msg.ms);
         if (msg.t === 'k-reihe' && k.art === 'reihe') {
           if (msg.zweifel === true) {
@@ -448,6 +454,10 @@ export class RoomLogic {
           const pick = sauberePick(msg.pick);
           if (!pick || !pick.length) return;
           k.antworten[pid] = { pick, ms: dauer };
+        } else if (msg.t === 'k-waage' && k.art === 'waage') {
+          const g = sauberGramm(msg.g, k.w);
+          if (!g) return;
+          k.antworten[pid] = { g, ms: dauer, auto: msg.auto === true };
         } else return;
         if (!k.punkte[pid]) k.punkte[pid] = neuePunkte();
         if (this.alleGeantwortet(s)) return this.klasseAuswerten(s);
@@ -578,7 +588,8 @@ export class RoomLogic {
     const c = s.cfg, seed = zufallsSeed();
     s.nr++;
     const k = {
-      nr: s.nr, art: c.art, nwWahl: c.nw, zeit: c.zeit, runden: c.runden, seed, runde: 1, gespielt: 0, state: 'run',
+      nr: s.nr, art: c.art, nwWahl: c.nw, zeit: c.zeit, runden: c.art === 'waage' ? c.wrunden : c.runden, seed, runde: 1, gespielt: 0, state: 'run',
+      stufe: c.stufe, zutaten: c.zutaten,
       last: null, paused: false, haltNext: false, first: true,
       antworten: {}, // Abgaben der laufenden Runde
       punkte: {},    // Punktestand je Person
@@ -587,8 +598,9 @@ export class RoomLogic {
     };
     for (const pid of s.order) k.punkte[pid] = neuePunkte();
     if (k.art === 'reihe') { k.reiheNr = 0; this.neueReihe(k); }
+    else if (k.art === 'waage') { k.wZuletzt = []; this.neueWaage(k); }
     else Object.assign(k, bedarfFinalRunde(mischSeed(seed, 21), 1, k.nwWahl));
-    Object.assign(k, rundenPlan(now + VORLAUF_START, k.art, k.art === 'reihe' ? k.reihe.length : 0, k.zeit));
+    Object.assign(k, rundenPlan(now + VORLAUF_START, k.art, klasseN(k), k.zeit));
     s.klasse = k; s.phase = 'klasse'; s.quali = null; s.final = null;
     for (const pid of s.order) s.players[pid].q = null;
   }
@@ -598,6 +610,11 @@ export class RoomLogic {
     k.kette = kette(mischSeed(k.seed, k.reiheNr, 31), k.nw, REIHE_LAENGE + 1);
     k.reihe = [k.kette[0]]; // gelegte Reihenfolge von unten nach oben, kann Fehler enthalten
     k.kPos = 1;             // nächste Karte aus der Kette
+  }
+  // Waage: neue Mahlzeit (möglichst andere Lebensmittel als in den letzten Runden)
+  neueWaage(k) {
+    k.w = waageRunde(mischSeed(k.seed, 41, k.runde), k.zutaten, k.wZuletzt);
+    k.wZuletzt = [...k.w.lm, ...k.wZuletzt].slice(0, 9);
   }
   klasseOffen(k) { return !k.paused && !!k.startAt && this.io.now() >= k.startAt; }
   // Haben alle verbundenen Personen abgegeben? (Wer nicht verbunden ist, hält das Spiel nicht auf)
@@ -619,7 +636,7 @@ export class RoomLogic {
       const pk = k.punkte[pid] || (k.punkte[pid] = neuePunkte());
       pk.ms += a.ms || 0; pk.runden++;
     }
-    const pause = k.art === 'reihe' ? this.klasseReihe(s) : this.klasseBedarf(s);
+    const pause = k.art === 'reihe' ? this.klasseReihe(s) : k.art === 'waage' ? this.klasseWaage(s) : this.klasseBedarf(s);
     k.antworten = {};
     k.gespielt++;
     if (k.runde >= k.runden) {
@@ -628,8 +645,9 @@ export class RoomLogic {
     } else {
       k.runde++; k.first = false;
       if (k.art === 'bedarf') Object.assign(k, bedarfFinalRunde(mischSeed(k.seed, 21), k.runde, k.nwWahl));
+      if (k.art === 'waage') this.neueWaage(k);
       if (k.haltNext) { k.paused = true; k.haltNext = false; k.startAt = 0; k.deadline = 0; }
-      else Object.assign(k, rundenPlan(now + pause, k.art, k.art === 'reihe' ? k.reihe.length : 0, k.zeit));
+      else Object.assign(k, rundenPlan(now + pause, k.art, klasseN(k), k.zeit));
     }
     await this.persist(); this.pushAll();
   }
@@ -698,6 +716,28 @@ export class RoomLogic {
     k.last = { runde: k.runde, art: 'bedarf', b: k.b, hand: k.hand, beste, verteilung, haeufig, anzahl: Object.keys(k.antworten).length };
     return KLASSE_PAUSE.bedarf;
   }
+  // Waage: Punkte nach Genauigkeit. Am Beamer: Lösung, Klassenschnitt und wer wie viele Punkte bekommt
+  klasseWaage(s) {
+    const k = s.klasse, w = k.w, exakt = waageWerte(w.lm, w.rezept);
+    const verteilung = Array.from({ length: PUNKTE.waageMax + 1 }, () => 0);
+    const summe = w.lm.map(() => 0), liste = [];
+    for (const [pid, a] of Object.entries(k.antworten)) {
+      const werte = waageWerte(w.lm, a.g), abw = waageAbweichung(exakt, werte), plus = waagePunkte(abw);
+      const pk = k.punkte[pid];
+      pk.p += plus; if (plus > 0) pk.richtig++;
+      verteilung[plus]++;
+      a.g.forEach((x, j) => { summe[j] += x; });
+      liste.push({ name: s.players[pid] ? s.players[pid].name : '?', plus, abw });
+      k.zuletzt[pid] = { g: a.g, abw, plus, auto: a.auto };
+    }
+    const n = liste.length;
+    liste.sort((a, b) => (b.plus - a.plus) || (a.abw - b.abw) || a.name.localeCompare(b.name, 'de'));
+    k.last = {
+      runde: k.runde, art: 'waage', w, verteilung, anzahl: n, liste,
+      schnitt: n ? summe.map(x => Math.round(x / n)) : null, // Klassenschnitt der Grammzahlen
+    };
+    return KLASSE_PAUSE.waage;
+  }
   klasseRanking() {
     const s = this.s, k = s.klasse;
     const list = s.order.filter(pid => s.players[pid]);
@@ -714,7 +754,11 @@ export class RoomLogic {
       last: k.last, anzahl: Object.keys(k.antworten).length,
     };
     if (k.art === 'reihe') { v.nw = k.nw; v.reihe = k.reihe; v.neu = k.state === 'run' ? k.kette[k.kPos] : null; v.reiheNr = k.reiheNr; v.kPos = k.kPos; v.kLen = k.kette.length - 1; }
-    else { v.b = k.b; v.hand = k.hand; }
+    else if (k.art === 'waage') {
+      // Das Rezept (die Lösung) bleibt geheim, bis die Runde ausgewertet ist
+      v.stufe = k.stufe; v.zutaten = k.zutaten;
+      v.w = k.state === 'run' ? { lm: k.w.lm, max: k.w.max, schritt: k.w.schritt, ziel: k.w.ziel } : null;
+    } else { v.b = k.b; v.hand = k.hand; }
     rk = rk || this.klasseRanking();
     const eintrag = id => { const pk = k.punkte[id] || neuePunkte(); return { pid: id, name: s.players[id].name, p: pk.p, richtig: pk.richtig, zweifelOk: pk.zweifelOk, zweifelFalsch: pk.zweifelFalsch }; };
     if (full) { v.rangliste = rk.map(eintrag); v.beantwortet = Object.keys(k.antworten); }

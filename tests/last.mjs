@@ -1,5 +1,5 @@
 // Lasttest: 30 simulierte Handys (WebSocket, ohne Browser) spielen gleichzeitig.
-// Klassenrunde Reihe (10 Runden), Klassenrunde Bedarf (5 Runden) und ein Qualifying.
+// Klassenrunde Reihe (10 Runden), Klassenrunde Bedarf (5 Runden), Klassenrunde Waage (3 Runden) und ein Qualifying.
 // Unterwegs verlieren 3 Handys die Verbindung und kommen zurück, 2 Handys geben eine Runde lang nichts ab.
 // Start:  node tests/last.mjs      (startet den lokalen Server selbst)
 //         node tests/last.mjs http://127.0.0.1:8787   (gegen einen laufenden Server, z. B. „npx wrangler dev“)
@@ -7,7 +7,7 @@ import { spawn } from 'node:child_process';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { besteKombi, zielZehntel, passtLuecke, REIHE_LAENGE } from '../public/js/regeln.js';
+import { besteKombi, zielZehntel, passtLuecke, REIHE_LAENGE, waageWerte, waageAbweichung } from '../public/js/regeln.js';
 import { BEDARFSKARTEN } from '../public/js/inhalte.js';
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -86,6 +86,11 @@ class Bot {
         const gap = r < 0.8 || !schlecht.length ? gut[0] : schlecht[Math.floor(Math.random() * schlecht.length)];
         this.send({ t: 'k-reihe', nr: k.nr, r: k.runde, gap, ms });
       }
+    } else if (k.art === 'waage') {
+      if (k.w.rezept !== undefined) stat.fehler.push('Lösung vorab sichtbar');
+      // Ein Drittel rechnet genau (beste Grammzahlen auf dem Raster), die anderen stellen irgendetwas ein
+      const g = Math.random() < 0.33 ? besteGramm(k.w) : k.w.max.map((m, j) => Math.round(Math.random() * m / k.w.schritt[j]) * k.w.schritt[j]);
+      this.send({ t: 'k-waage', nr: k.nr, r: k.runde, g, ms });
     } else {
       const b = BEDARFSKARTEN[k.b];
       const best = besteKombi(k.hand, b.wert, zielZehntel(b)).pick.map(i => k.hand.indexOf(i));
@@ -96,6 +101,15 @@ class Bot {
   }
 }
 let letzteAntwort = 0;
+function besteGramm(w) {
+  let best = null, bd = Infinity;
+  const rec = (j, g) => {
+    if (j === w.lm.length) { const d = waageAbweichung(w.ziel, waageWerte(w.lm, g)); if (d < bd) { bd = d; best = g.slice(); } return; }
+    for (let x = 0; x <= w.max[j]; x += w.schritt[j]) { g.push(x); rec(j + 1, g); g.pop(); }
+  };
+  rec(0, []);
+  return best;
+}
 const bots = Array.from({ length: N }, (_, i) => new Bot(i));
 await Promise.all(bots.map(b => b.start()));
 for (const b of bots) b.send({ t: 'join', first: b.name, initial: 'T' });
@@ -149,6 +163,24 @@ try {
   tsend({ t: 'k-ende' });
   await warte(() => room.klasse.state === 'ende', 30000, 'Ende Bedarf');
   log('Bedarf beendet nach', room.klasse.gespielt, 'Runden');
+
+  // ================================================================ Klassenrunde Waage
+  tsend({ t: 'klasse-start', cfg: { art: 'waage', zutaten: 3, wrunden: 5, stufe: 'offen', zeit: 'an' } });
+  await warte(() => room.klasse && room.klasse.state === 'run' && room.klasse.art === 'waage', 5000, 'Start Waage');
+  const wnr = room.klasse.nr;
+  for (let r = 1; r <= 3; r++) {
+    await warte(() => room.klasse.last && room.klasse.last.runde >= r, 90000, 'Waage Runde ' + r);
+    await warte(() => bots.every(b => !b.ws || b.empfangen.has(wnr + ':' + r)), 5000, 'Waage-Auflösung an alle Handys, Runde ' + r);
+    const L = room.klasse.last;
+    const zehner = L.verteilung[L.verteilung.length - 1];
+    log(`Waage Runde ${r}: ${L.anzahl} Abgaben · ${zehner}× volle Punkte · Lösung ${L.w.rezept.join('/')} g · Klassenschnitt ${L.schnitt.join('/')} g`);
+    if (L.anzahl !== N || L.liste.length !== N) throw new Error(`Waage Runde ${r}: ${L.anzahl} statt ${N} Abgaben`);
+    if (!zehner) throw new Error('Wer genau rechnet, muss volle Punkte bekommen');
+  }
+  tsend({ t: 'k-ende' });
+  await warte(() => room.klasse.state === 'ende', 30000, 'Ende Waage');
+  if (stat.fehler.length) throw new Error(stat.fehler[0]);
+  log('Waage beendet nach', room.klasse.gespielt, 'Runden');
 
   // ================================================================ Qualifying mit 30 Handys
   tsend({ t: 'to-lobby' });

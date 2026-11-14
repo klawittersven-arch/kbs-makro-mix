@@ -513,6 +513,56 @@ test('Klassenrunde Bedarf: Punkte nach Nähe zum Zielwert, Verteilung, häufig g
   assert.deepEqual(R.last(P[1], 'you').klasse.me.zuletzt.drueber, true);
 });
 
+test('Klassenrunde Waage: Lösung bleibt geheim, Punkte nach Genauigkeit, kein Qualifying und kein Finale', async () => {
+  // Qualifying mit Waage geht nicht
+  const Q = await klasse(2, { art: 'waage' });
+  await Q.R.msg(Q.T, { t: 'quali-start', cfg: { art: 'waage' } });
+  assert.equal(Q.R.last(Q.T, 'error').why, 'nur-klasse');
+  assert.equal(room(Q.R, Q.T).phase, 'lobby');
+
+  const { R, T, P, k } = await klassenrunde(4, { art: 'waage', zutaten: 3, wrunden: 5, stufe: 'offen' });
+  let K = k();
+  assert.equal(K.art, 'waage'); assert.equal(K.runden, 5); assert.equal(K.zutaten, 3);
+  assert.equal(K.w.lm.length, 3);
+  assert.equal(K.w.rezept, undefined, 'Beamer bekommt die Lösung nicht vorab');
+  assert.equal(R.last(P[0], 'you').klasse.w.rezept, undefined, 'Handys bekommen die Lösung nicht vorab');
+  assert.equal(K.deadline - K.startAt, 120000, '3 Lebensmittel: 2 Minuten');
+  const w = R.logic.s.klasse.w; // nur der Test schaut in den Server
+  R.tick(VORLAUF_START + 10);
+  await R.msg(P[0], { t: 'k-waage', nr: K.nr, r: 1, g: w.rezept, ms: 30000 });                   // genau
+  await R.msg(P[1], { t: 'k-waage', nr: K.nr, r: 1, g: [0, 0, 0], ms: 20000 });                  // leerer Teller
+  await R.msg(P[2], { t: 'k-waage', nr: K.nr, r: 1, g: [w.rezept[0] + 1, 0, 0], ms: 9000 });    // ungültig
+  await R.msg(P[2], { t: 'k-waage', nr: K.nr, r: 1, g: [10, 20], ms: 9000 });                   // ungültig
+  assert.equal(R.last(T, 'kp').n, 2);
+  const daneben = w.rezept.map((g, j) => Math.min(w.max[j], Math.ceil(g * 1.3 / w.schritt[j]) * w.schritt[j])); // überall etwa 30 % zu viel
+  await R.msg(P[2], { t: 'k-waage', nr: K.nr, r: 1, g: daneben, ms: 40000 });
+  await R.msg(P[3], { t: 'k-waage', nr: K.nr, r: 1, g: w.rezept.map((g, j) => Math.min(w.max[j], g * 2)), ms: 120000, auto: true });
+  K = k();
+  assert.equal(K.runde, 2, 'alle haben abgegeben → Auswertung');
+  const L = K.last;
+  assert.equal(L.art, 'waage');
+  assert.deepEqual(L.w.rezept, w.rezept, 'nach der Runde: Lösung für alle');
+  assert.equal(L.liste[0].name, 'Lena K.'); assert.equal(L.liste[0].plus, PUNKTE.waageMax);
+  assert.equal(L.liste.find(x => x.name === 'Tom K.').plus, 0);
+  const aylin = L.liste.find(x => x.name === 'Aylin K.').plus, max = L.liste.find(x => x.name === 'Max K.').plus;
+  assert.ok(aylin < PUNKTE.waageMax && aylin >= max, `Aylin ${aylin}, Max ${max}`);
+  assert.equal(L.verteilung.reduce((a, b) => a + b, 0), 4);
+  assert.equal(L.schnitt.length, 3);
+  assert.notDeepEqual(K.w.lm, w.lm, 'neue Mahlzeit');
+  const me = R.last(P[0], 'you').klasse.me;
+  assert.equal(me.p, PUNKTE.waageMax); assert.deepEqual(me.zuletzt.g, w.rezept); assert.equal(me.zuletzt.abw, 0);
+  assert.equal(R.last(P[3], 'you').klasse.me.zuletzt.auto, true);
+  // Ende: kein Finale nach der Waage
+  await R.msg(T, { t: 'k-ende' });
+  assert.equal(k().state, 'ende');
+  await R.msg(T, { t: 'klasse-final' });
+  assert.equal(R.last(T, 'error').why, 'nur-klasse');
+  assert.equal(room(R, T).phase, 'klasse');
+  // Einstellungen: unbekannte Werte fallen zurück
+  const c = cleanCfg({ art: 'waage', zutaten: 7, wrunden: 99 });
+  assert.equal(c.art, 'waage'); assert.equal(c.zutaten, 2); assert.equal(c.wrunden, 5);
+});
+
 // ================================================================ Computergegner (CPU)
 import { cpuLuecke, cpuAuswahl, istCpu, cpuName, rng as zufall, kette as kette2, richtigeLuecke as luecke2 } from '../public/js/regeln.js';
 

@@ -184,3 +184,48 @@ test('Zeitlimit: großzügig oder aus', () => {
   assert.equal(zeitLimit('reihe', 5, 'aus'), 0);
   assert.ok(NW.kcal && NW.eiweiss.name === 'Eiweiß');
 });
+
+// ================================================================ Spielart „Waage“
+import { waageRunde, waageWerte, waageRund, waageAbweichung, waagePunkte, waageBereich, sauberGramm, PUNKTE, WAAGE_ANZAHL } from '../public/js/regeln.js';
+
+test('Waage: Rezept liegt auf dem Regler, Zielwerte passen, verschiedene Lebensmittel', () => {
+  for (const n of WAAGE_ANZAHL) {
+    for (let seed = 1; seed <= 150; seed++) {
+      const w = waageRunde(seed * 7907, n);
+      assert.equal(w.lm.length, n); assert.equal(new Set(w.lm).size, n, 'keine doppelten Lebensmittel');
+      w.lm.forEach((i, k) => {
+        assert.ok(LEBENSMITTEL[i].kcal >= 45, 'keine fast energiefreien Lebensmittel: ' + LEBENSMITTEL[i].name);
+        assert.deepEqual({ max: w.max[k], schritt: w.schritt[k] }, waageBereich(i));
+        assert.ok(w.rezept[k] > 0 && w.rezept[k] <= w.max[k] && w.rezept[k] % w.schritt[k] === 0, `Rezept ${w.rezept[k]} g auf dem Regler`);
+      });
+      assert.deepEqual(w.ziel, waageRund(waageWerte(w.lm, w.rezept)));
+      assert.deepEqual(sauberGramm(w.rezept, w), w.rezept);
+    }
+  }
+  // Zuletzt verwendete Lebensmittel kommen möglichst nicht gleich wieder
+  const a = waageRunde(11, 3), b = waageRunde(12, 3, a.lm);
+  assert.ok(b.lm.every(i => !a.lm.includes(i)));
+});
+
+test('Waage: Punkte nach Genauigkeit, Abgaben werden geprüft', () => {
+  const w = waageRunde(4242, 3), exakt = waageWerte(w.lm, w.rezept);
+  assert.equal(waageAbweichung(exakt, exakt), 0);
+  assert.equal(waagePunkte(0), PUNKTE.waageMax, 'genau getroffen');
+  assert.equal(waagePunkte(49), PUNKTE.waageMax, 'unter 5 % daneben');
+  assert.equal(waagePunkte(50), PUNKTE.waageMax - 1);
+  assert.equal(waagePunkte(1000), 0, 'nie unter 0');
+  const nichts = waageAbweichung(exakt, waageWerte(w.lm, w.lm.map(() => 0)));
+  assert.equal(waagePunkte(nichts), 0, 'leerer Teller: 0 Punkte');
+  // näher dran = mindestens so viele Punkte
+  const etwas = w.rezept.map((g, k) => Math.min(w.max[k], g + w.schritt[k] * 3));
+  const viel = w.rezept.map((g, k) => Math.min(w.max[k], g * 2));
+  const pE = waagePunkte(waageAbweichung(exakt, waageWerte(w.lm, etwas))), pV = waagePunkte(waageAbweichung(exakt, waageWerte(w.lm, viel)));
+  assert.ok(pE <= PUNKTE.waageMax && pE >= pV, `etwas daneben ${pE} ≥ viel daneben ${pV}`);
+  // kleine Zielwerte: 1 g statt 0 g Fett ist kein „unendlich falsch“
+  assert.equal(waageAbweichung({ kcal: 100, fett: 0, kh: 10, eiweiss: 10 }, { kcal: 100, fett: 1, kh: 10, eiweiss: 10 }), 25);
+  assert.equal(sauberGramm([10, 20], w), null, 'falsche Anzahl');
+  assert.equal(sauberGramm(w.rezept.map(g => g + 1), w), null, 'nicht auf dem Raster');
+  assert.equal(sauberGramm(w.max.map(m => m + w.schritt[0] * 10), w), null, 'zu viel');
+  assert.equal(sauberGramm(w.rezept.map(() => -10), w), null, 'negativ');
+  assert.equal(sauberGramm('100,100,100', w), null);
+});
